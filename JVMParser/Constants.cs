@@ -4,29 +4,29 @@ internal class Constants
 {
     public class ConstantPoolExtraPropertyName
     {
-        public const string name_index = "name_index";
-        public const string string_index = "string_index";
-        public const string class_index = "class_index";
-        public const string name_and_type_index = "name_and_type_index";
-        public const string descriptor_index = "descriptor_index";
-        public const string reference_kind = "reference_kind";
-        public const string reference_index = "reference_index";
-        public const string bootstrap_method_attr_index = "bootstrap_method_attr_index";
+        public const string NAME_INDEX = "name_index";
+        public const string STRING_INDEX = "string_index";
+        public const string CLASS_INDEX = "class_index";
+        public const string NAME_AND_TYPE_INDEX = "name_and_type_index";
+        public const string DESCRIPTOR_INDEX = "descriptor_index";
+        public const string REFERENCE_KIND = "reference_kind";
+        public const string REFERENCE_INDEX = "reference_index";
+        public const string BOOTSTRAP_METHOD_ATTRIBUTE_INDEX = "bootstrap_method_attr_index";
     }
     
     public class AttributeName
     {
-        public const string ConstantValue = "ConstantValue";
-        public const string Code = "Code";
-        public const string StackMapTable = "StackMapTable";
-        public const string Exceptions = "Exceptions";
-        public const string InnerClasses = "InnerClasses";
+        public const string CONSTANT_VALUE = "ConstantValue";
+        public const string CODE = "Code";
+        public const string STACK_MAP_TABLE = "StackMapTable";
+        public const string EXCEPTIONS = "Exceptions";
+        public const string INNER_CLASSES = "InnerClasses";
         public const string EnclosingMethod = "EnclosingMethod";
         public const string Synthetic = "Synthetic";
         public const string Signature = "Signature";
-        public const string SourceFile = "SourceFile";
+        public const string SOURCE_FILE = "SourceFile";
         public const string SourceDebugExtension = "SourceDebugExtension";
-        public const string LineNumberTable = "LineNumberTable";
+        public const string LINE_NUMBER_TABLE = "LineNumberTable";
         public const string LocalVariableTable = "LocalVariableTable";
         public const string LocalVariableTypeTable = "LocalVariableTypeTable";
         public const string Deprecated = "Deprecated";

@@ -112,3 +112,15 @@ public enum JVMAccessFlag : ushort
     /// </summary>
     MODULE = 0x8000,
 }
+
+public enum JVMFieldType
+{
+    BYTE,
+    CHAR,
+    DOUBLE,
+    FLOAT,
+    INT,
+    LONG,
+    SHORT,
+    BOOL,
+}

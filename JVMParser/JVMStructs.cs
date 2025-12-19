@@ -43,11 +43,11 @@ namespace JVMParser
         }
     }
     
-    public class JVMValueConstantPool<T> : JVMConstantPool
+    public class JVMValueConstantPool : JVMConstantPool
     {
-        public T Value;
+        public object Value;
 
-        public JVMValueConstantPool(JVMConstantPoolTag tag, T value)
+        public JVMValueConstantPool(JVMConstantPoolTag tag, object value)
             : base(tag, null!)
         {
             Value = value;
@@ -109,8 +109,7 @@ namespace JVMParser
         public JVMMethodRaw[] Methods;
         public JVMAttributeRaw[] Attributes;
         
-
-        public virtual bool TryResolvePoolByIndex(ushort propertyIndex, [NotNullWhen(true)] out JVMConstantPool? pool)
+        public bool TryResolvePoolByIndex(ushort propertyIndex, [NotNullWhen(true)] out JVMConstantPool? pool)
         {
             if (ConstantPools.Length >= propertyIndex)
             {
@@ -122,14 +121,19 @@ namespace JVMParser
             return false;
         }
         
-        public virtual JVMConstantPool ResolvePoolByIndex(ushort propertyIndex)
+        public JVMConstantPool ResolvePoolByIndex(ushort propertyIndex)
         {
             return ConstantPools[propertyIndex - 1];
         }
         
-        public virtual T ResolveValuePoolValueByIndex<T>(ushort propertyIndex)
+        public object ResolveValuePoolValueByIndex(ushort propertyIndex)
         {
-            return ((JVMValueConstantPool<T>)ConstantPools[propertyIndex - 1]).Value;
+            return ((JVMValueConstantPool)ConstantPools[propertyIndex - 1]).Value;
+        }
+        
+        public T ResolveValuePoolValueByIndex<T>(ushort propertyIndex)
+        {
+            return (T)ResolveValuePoolValueByIndex(propertyIndex);
         }
 
         public string RecursivelyResolveConstantPool(ushort index)
@@ -137,32 +141,23 @@ namespace JVMParser
             var resolvedPool = ResolvePoolByIndex(index);
             while (true)
             {
-                if (resolvedPool is JVMValueConstantPool<string> valuePool)
+                if (resolvedPool is JVMValueConstantPool valuePool)
                 {
-                    return valuePool.Value;
+                    return valuePool.Value.ToString();
                 }
 
                 switch (resolvedPool.Tag)
                 {
-                    case JVMConstantPoolTag.UTF8:
-                    case JVMConstantPoolTag.INTEGER:
-                        return ((JVMValueConstantPool<int>)resolvedPool).Value.ToString();
-                    case JVMConstantPoolTag.FLOAT:
-                        return ((JVMValueConstantPool<float>)resolvedPool).Value.ToString(CultureInfo.InvariantCulture);
-                    case JVMConstantPoolTag.LONG:
-                        return ((JVMValueConstantPool<long>)resolvedPool).Value.ToString();
-                    case JVMConstantPoolTag.DOUBLE:
-                        return ((JVMValueConstantPool<double>)resolvedPool).Value.ToString(CultureInfo.InvariantCulture);
                     case JVMConstantPoolTag.CLASS:
                     case JVMConstantPoolTag.MODULE:
                     case JVMConstantPoolTag.PACKAGE:
-                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.name_index);
+                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.NAME_INDEX);
                         continue;
                     case JVMConstantPoolTag.STRING:
-                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.string_index);
+                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.STRING_INDEX);
                         continue;
                     case JVMConstantPoolTag.METHOD_TYPE:
-                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.descriptor_index);
+                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX);
                         continue;
                     case JVMConstantPoolTag.FIELD_REF:
                     case JVMConstantPoolTag.METHOD_REF:
@@ -172,6 +167,11 @@ namespace JVMParser
                     case JVMConstantPoolTag.DYNAMIC:
                     case JVMConstantPoolTag.INVOKE_DYNAMIC:
                     case JVMConstantPoolTag._DUMMY:
+                    case JVMConstantPoolTag.UTF8:
+                    case JVMConstantPoolTag.INTEGER:
+                    case JVMConstantPoolTag.FLOAT:
+                    case JVMConstantPoolTag.LONG:
+                    case JVMConstantPoolTag.DOUBLE:
                     default:
                         return $"[UNRESOLVABLE] {resolvedPool}";
                 }
@@ -181,55 +181,258 @@ namespace JVMParser
     #endregion
 
     #region Processed value classes
-    public class JVMMethodDescriptor
+    #region Descriptors
+    public interface IJVMDescriptor
     {
-        public object NameOrMethodRef;
-
-        public JVMMethodDescriptor(JVMClassRaw rawClass, ushort descriptorIndex)
+        string ToDescriptorString();
+        string ToString(string name);
+    }
+    
+    public abstract class AJVMFieldDescriptor : IJVMDescriptor
+    {
+        public static AJVMFieldDescriptor ParseDescriptor(ref string descriptorString)
         {
-            var resolvedPool = rawClass.ResolvePoolByIndex(descriptorIndex);
-            if (resolvedPool.Tag == JVMConstantPoolTag.METHOD_REF)
+            if (descriptorString.Length < 1)
             {
-                var classNameIndex = (ushort)resolvedPool.ExtraData[Constants.ConstantPoolExtraPropertyName.class_index];
-                var nameAndTypeIndex = (ushort)resolvedPool.ExtraData[Constants.ConstantPoolExtraPropertyName.name_and_type_index];
-                NameOrMethodRef = (
-                    rawClass.RecursivelyResolveConstantPool(classNameIndex),
-                    rawClass.RecursivelyResolveConstantPool(nameAndTypeIndex)
-                );
+                throw new ArgumentException("Descriptor is empty!");
             }
-            else
+
+            var firstChar = descriptorString[0];
+            descriptorString = descriptorString[1..];
+            switch (firstChar)
             {
-                NameOrMethodRef = rawClass.RecursivelyResolveConstantPool(descriptorIndex);
+                case 'B':
+                    return new JVMFieldDescriptor(JVMFieldType.BYTE);
+                case 'C':
+                    return new JVMFieldDescriptor(JVMFieldType.CHAR);
+                case 'D':
+                    return new JVMFieldDescriptor(JVMFieldType.DOUBLE);
+                case 'F':
+                    return new JVMFieldDescriptor(JVMFieldType.FLOAT);
+                case 'I':
+                    return new JVMFieldDescriptor(JVMFieldType.INT);
+                case 'J':
+                    return new JVMFieldDescriptor(JVMFieldType.LONG);
+                case 'S':
+                    return new JVMFieldDescriptor(JVMFieldType.SHORT);
+                case 'Z':
+                    return new JVMFieldDescriptor(JVMFieldType.BOOL);
+                case '[':
+                    return new JVMArrayDescriptor(ParseDescriptor(ref descriptorString));
+                case 'L':
+                    var classEndIndex = descriptorString.IndexOf(';');
+                    if (classEndIndex == -1)
+                    {
+                        throw new ArgumentException("No class field end character!");
+                    }
+
+                    var className = descriptorString[..classEndIndex];
+                    descriptorString = descriptorString[(classEndIndex + 1)..];
+                    return new JVMClassFieldDescriptor(className);
+                default:
+                    throw new ArgumentException("Unknown descriptor type!");
             }
         }
+
+        public static AJVMFieldDescriptor ParseDescriptor(string descriptorString)
+        {
+            var res = ParseDescriptor(ref descriptorString);
+            return descriptorString.Length == 0
+                ? res
+                : throw new ArgumentException($"Remaining descriptor data after parsing: \"{descriptorString}\"");
+        }
+
+        public abstract string ToDescriptorString();
+        public abstract string ToString(string name);
     }
+    
+    public class JVMFieldDescriptor : AJVMFieldDescriptor
+    {
+        public readonly JVMFieldType FieldType;
         
-    public class JVMField
+        public JVMFieldDescriptor(JVMFieldType fieldType)
+        {
+            FieldType = fieldType;
+        }
+
+        public override string ToDescriptorString()
+        {
+            return FieldType switch
+            {
+                JVMFieldType.BYTE => "B",
+                JVMFieldType.CHAR => "C",
+                JVMFieldType.DOUBLE => "D",
+                JVMFieldType.FLOAT => "F",
+                JVMFieldType.INT => "I",
+                JVMFieldType.LONG => "J",
+                JVMFieldType.SHORT => "S",
+                JVMFieldType.BOOL => "Z",
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
+
+        public override string ToString(string fieldName)
+        {
+            return $"{FieldType.ToString().ToLower()} {fieldName}";
+        }
+
+        public override string ToString()
+        {
+            return FieldType.ToString().ToLower();
+        }
+    }
+    
+    public class JVMClassFieldDescriptor : AJVMFieldDescriptor
     {
-        public JVMAccessFlag[] AccessFlags;
-        public string Name;
-        public string Descriptor;
+        public readonly string ClassName;
+        
+        public JVMClassFieldDescriptor(string className)
+        {
+            ClassName = className;
+        }
+
+        public override string ToDescriptorString()
+        {
+            return $"L{ClassName};";
+        }
+
+        public override string ToString(string fieldName)
+        {
+            return $"{ClassName} {fieldName}";
+        }
+
+        public override string ToString()
+        {
+            return ClassName;
+        }
+    }
+    
+    public class JVMArrayDescriptor : AJVMFieldDescriptor
+    {
+        public readonly AJVMFieldDescriptor Field;
+        
+        public JVMArrayDescriptor(AJVMFieldDescriptor field)
+        {
+            Field = field;
+        }
+
+        public override string ToDescriptorString()
+        {
+            return '[' + Field.ToDescriptorString();
+        }
+
+        public override string ToString(string fieldName)
+        {
+            return $"{Field}[] {fieldName}";
+        }
+
+        public override string ToString()
+        {
+            return $"{Field}[]";
+        }
+    }
+    
+    public class JVMMethodDescriptor : IJVMDescriptor
+    {
+        public readonly AJVMFieldDescriptor[] Parameters;
+        public readonly AJVMFieldDescriptor? ReturnType;
+        
+        public JVMMethodDescriptor(string descriptorString)
+        {
+            if (!descriptorString.StartsWith('('))
+            {
+                throw new ArgumentException("Invalid method descriptor start!");
+            }
+
+            var paramsAndReturn = descriptorString.TrimStart('(').Split(')');
+            if (paramsAndReturn.Length != 2)
+            {
+                throw new ArgumentException("No parameters and return part found in method descriptor!");
+            }
+
+            var returnDescriptor = paramsAndReturn[1];
+            ReturnType = returnDescriptor != "V"
+                ? AJVMFieldDescriptor.ParseDescriptor(returnDescriptor)
+                : null;
+            
+            var paramDescriptors = paramsAndReturn[0];
+            var parameters = new List<AJVMFieldDescriptor>();
+            while (paramDescriptors.Length != 0)
+            {
+                parameters.Add(AJVMFieldDescriptor.ParseDescriptor(ref paramDescriptors));
+            }
+            Parameters = parameters.ToArray();
+        }
+
+        public string ToDescriptorString()
+        {
+            var parameters = string.Join("", Parameters.Select(p => p.ToDescriptorString()));
+            return $"({parameters}){(ReturnType is not null ? ReturnType.ToDescriptorString() : "V")}";
+        }
+
+        public string ToString(string methodName = "Method")
+        {
+            return $"{(ReturnType is not null ? ReturnType : "void")} {methodName}({string.Join(", ", Parameters)});";
+        }
+
+        public override string ToString()
+        {
+            return ToString();
+        }
+    }
+    #endregion
+
+    #region Attribute structs
+    public class JVMCode
+    {
+        public byte[] originalBytes;
+        public object Code;
+
+        public override string ToString()
+        {
+            return Code.ToString();
+        }
+    }
+    
+    public class JVMExceptionTable
+    {
+        public ushort StartPC;
+        public ushort EndPC;
+        public ushort HandlerPC;
+        public ushort CatchType;
+
+        public override string ToString()
+        {
+            return $"{CatchType}: {StartPC}-{EndPC} -> {HandlerPC}";
+        }
+    }
+    
+    public class JVMCodeAttribute
+    {
+        public ushort MaxStack;
+        public ushort MaxLocals;
+        public JVMCode Code;
+        public JVMExceptionTable[] ExceptionTables;
         public JVMAttribute[] Attributes;
 
         public override string ToString()
         {
-            return Name;
+            return Code.ToString();
         }
     }
 
-    public class JVMMethod
+    public class JVMLineNumberTable
     {
-        public JVMAccessFlag[] AccessFlags;
-        public string Name;
-        public string Descriptor;
-        public JVMAttribute[] Attributes;
+        public ushort StartPC;
+        public ushort LineNumber;
 
         public override string ToString()
         {
-            return Name;
+            return $"{StartPC} -> {LineNumber}";
         }
     }
-
+    #endregion
+    
     public class JVMAttribute
     {
         public string Name;
@@ -237,7 +440,33 @@ namespace JVMParser
 
         public override string ToString()
         {
-            return Name;
+            return $"{Name} => {Data}";
+        }
+    }
+        
+    public class JVMField
+    {
+        public JVMAccessFlag[] AccessFlags;
+        public string Name;
+        public AJVMFieldDescriptor Descriptor;
+        public JVMAttribute[] Attributes;
+
+        public override string ToString()
+        {
+            return $"{(AccessFlags.Length != 0 ? $"{string.Join(" ", AccessFlags).ToLower()} " : "")}{Descriptor.ToString(Name)}";
+        }
+    }
+
+    public class JVMMethod
+    {
+        public JVMAccessFlag[] AccessFlags;
+        public string Name;
+        public JVMMethodDescriptor Descriptor;
+        public JVMAttribute[] Attributes;
+
+        public override string ToString()
+        {
+            return $"{(AccessFlags.Length != 0 ? $"{string.Join(" ", AccessFlags).ToLower()} " : "")}{Descriptor.ToString(Name)}";
         }
     }
     
@@ -246,10 +475,9 @@ namespace JVMParser
         public string Magic;
         public ushort MajorVersion;
         public ushort MinorVersion;
-        // public JVMConstantPool[] ConstantPools;
         public JVMAccessFlag[] AccessFlags;
         public string ThisClass;
-        public string SuperClass;
+        public string? SuperClass;
         public string[] Interfaces;
         public JVMField[] Fields;
         public JVMMethod[] Methods;
@@ -257,7 +485,8 @@ namespace JVMParser
 
         public override string ToString()
         {
-            return $"{ThisClass} : {SuperClass} ({MajorVersion}.{MinorVersion})";
+            var accessFlagsStr = AccessFlags.Length != 0 ? $"{string.Join(" ", AccessFlags).ToLower()} " : "";
+            return $"{accessFlagsStr}{ThisClass}{(SuperClass is not null ? $" : {SuperClass}" : "")} (v{MajorVersion}.{MinorVersion})";
         }
     }
     #endregion

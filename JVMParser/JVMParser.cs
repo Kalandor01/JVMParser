@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+using System.Numerics;
 using System.Text;
 
 namespace JVMParser
@@ -41,32 +43,55 @@ namespace JVMParser
                 Magic = jvmClassRaw.Magic,
                 MajorVersion = jvmClassRaw.MajorVersion,
                 MinorVersion = jvmClassRaw.MinorVersion,
-                // ConstantPools = GetConstantPools(stream),
                 AccessFlags = jvmClassRaw.AccessFlags,
                 ThisClass = jvmClassRaw.RecursivelyResolveConstantPool(jvmClassRaw.ThisClassIndex),
-                SuperClass = jvmClassRaw.RecursivelyResolveConstantPool(jvmClassRaw.SuperClassIndex),
+                SuperClass = jvmClassRaw.SuperClassIndex != 0
+                    ? jvmClassRaw.RecursivelyResolveConstantPool(jvmClassRaw.SuperClassIndex)
+                    : null,
                 Interfaces = jvmClassRaw.Interfaces.Select(i => GetInterface(jvmClassRaw, i)).ToArray(),
                 Fields = jvmClassRaw.Fields.Select(f => GetField(jvmClassRaw, f)).ToArray(),
                 Methods = jvmClassRaw.Methods.Select(m => GetMethod(jvmClassRaw, m)).ToArray(),
                 Attributes = jvmClassRaw.Attributes.Select(a => GetAttribute(jvmClassRaw, a)).ToArray(),
             };
+
+            var classAttributes = jvmClass.Attributes;
+            var fieldAttributes = jvmClass.Fields.SelectMany(f => f.Attributes).ToList();
+            var methodAttributes = jvmClass.Methods.SelectMany(m => m.Attributes).ToList();
+
+            var attributes = classAttributes
+                .Concat(fieldAttributes)
+                .Concat(methodAttributes)
+                .ToList();
+
+            attributes = attributes
+                .Concat(attributes
+                    .Where(a => a.Name == Constants.AttributeName.CODE)
+                    .Select(a => (JVMCodeAttribute)a.Data)
+                    .SelectMany(c => c.Attributes)
+                )
+                .ToList();
+            
             return jvmClass;
         }
-
         #endregion
 
         #region Private methods
         #region Stream parsing
-        private static T[] GetArrayFromStream<T>(Stream stream, Func<Stream, T> itemProcessor)
+        private static T[] GetArrayFromStream<T, TN>(Stream stream, TN count, Func<Stream, T> itemProcessor)
+            where TN : INumber<TN>
         {
-            var count = stream.ReadUInt16();
             var list = new List<T>();
-            for (var x = 0; x < count; x++)
+            for (var x = TN.Zero; x < count; x++)
             {
                 var item = itemProcessor(stream);
                 list.Add(item);
             }
             return list.ToArray();
+        }
+        
+        private static T[] GetArrayFromStream<T>(Stream stream, Func<Stream, T> itemProcessor)
+        {
+            return GetArrayFromStream(stream, stream.ReadUInt16(), itemProcessor);
         }
         
         private static JVMConstantPool[] GetConstantPools(Stream stream)
@@ -80,7 +105,7 @@ namespace JVMParser
                 constantPools.Add(constantPool);
                 if (addExtra)
                 {
-                    constantPools.Add(new JVMValueConstantPool<object>(JVMConstantPoolTag._DUMMY, null!));
+                    constantPools.Add(new JVMValueConstantPool(JVMConstantPoolTag._DUMMY, null!));
                     x++;
                 }
             }
@@ -95,46 +120,46 @@ namespace JVMParser
             {
                 case JVMConstantPoolTag.UTF8:
                     var length = stream.ReadUInt16();
-                    return new JVMValueConstantPool<string>(tag, Encoding.UTF8.GetString(stream.ReadBytes(length)));
+                    return new JVMValueConstantPool(tag, Encoding.UTF8.GetString(stream.ReadBytes(length)));
                 case JVMConstantPoolTag.INTEGER:
-                    return new JVMValueConstantPool<int>(tag, stream.ReadInt32());
+                    return new JVMValueConstantPool(tag, stream.ReadInt32());
                 case JVMConstantPoolTag.FLOAT:
-                    return new JVMValueConstantPool<float>(tag, stream.ReadFloat());
+                    return new JVMValueConstantPool(tag, stream.ReadFloat());
                 case JVMConstantPoolTag.LONG:
                     addExtra = true;
-                    return new JVMValueConstantPool<long>(tag, stream.ReadInt64());
+                    return new JVMValueConstantPool(tag, stream.ReadInt64());
                 case JVMConstantPoolTag.DOUBLE:
                     addExtra = true;
-                    return new JVMValueConstantPool<double>(tag, stream.ReadDouble());
+                    return new JVMValueConstantPool(tag, stream.ReadDouble());
                 case JVMConstantPoolTag.CLASS:
                 case JVMConstantPoolTag.MODULE:
                 case JVMConstantPoolTag.PACKAGE:
-                    extraData[Constants.ConstantPoolExtraPropertyName.name_index] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX] = stream.ReadUInt16();
                     return new JVMConstantPool(tag, extraData);
                 case JVMConstantPoolTag.STRING:
-                    extraData[Constants.ConstantPoolExtraPropertyName.string_index] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.STRING_INDEX] = stream.ReadUInt16();
                     return new JVMConstantPool(tag, extraData);
                 case JVMConstantPoolTag.FIELD_REF:
                 case JVMConstantPoolTag.METHOD_REF:
                 case JVMConstantPoolTag.INTERFACE_METHOD_REF:
-                    extraData[Constants.ConstantPoolExtraPropertyName.class_index] = stream.ReadUInt16();
-                    extraData[Constants.ConstantPoolExtraPropertyName.name_and_type_index] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.CLASS_INDEX] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX] = stream.ReadUInt16();
                     return new JVMConstantPool(tag, extraData);
                 case JVMConstantPoolTag.NAME_AND_TYPE:
-                    extraData[Constants.ConstantPoolExtraPropertyName.name_index] = stream.ReadUInt16();
-                    extraData[Constants.ConstantPoolExtraPropertyName.descriptor_index] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX] = stream.ReadUInt16();
                     return new JVMConstantPool(tag, extraData);
                 case JVMConstantPoolTag.METHOD_HANDLE:
-                    extraData[Constants.ConstantPoolExtraPropertyName.reference_kind] = (JVMReferenceKind)stream.ReadByte();
-                    extraData[Constants.ConstantPoolExtraPropertyName.reference_index] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.REFERENCE_KIND] = (JVMReferenceKind)stream.ReadByte();
+                    extraData[Constants.ConstantPoolExtraPropertyName.REFERENCE_INDEX] = stream.ReadUInt16();
                     return new JVMConstantPool(tag, extraData);
                 case JVMConstantPoolTag.METHOD_TYPE:
-                    extraData[Constants.ConstantPoolExtraPropertyName.descriptor_index] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX] = stream.ReadUInt16();
                     return new JVMConstantPool(tag, extraData);
                 case JVMConstantPoolTag.DYNAMIC:
                 case JVMConstantPoolTag.INVOKE_DYNAMIC:
-                    extraData[Constants.ConstantPoolExtraPropertyName.bootstrap_method_attr_index] = stream.ReadUInt16();
-                    extraData[Constants.ConstantPoolExtraPropertyName.name_and_type_index] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.BOOTSTRAP_METHOD_ATTRIBUTE_INDEX] = stream.ReadUInt16();
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX] = stream.ReadUInt16();
                     return new JVMConstantPool(tag, extraData);
                 case JVMConstantPoolTag._DUMMY:
                 default:
@@ -202,7 +227,7 @@ namespace JVMParser
             {
                 AccessFlags = rawField.AccessFlags,
                 Name = rawClass.RecursivelyResolveConstantPool(rawField.NameIndex),
-                Descriptor = rawClass.RecursivelyResolveConstantPool(rawField.DescriptorIndex),
+                Descriptor = AJVMFieldDescriptor.ParseDescriptor(rawClass.RecursivelyResolveConstantPool(rawField.DescriptorIndex)),
                 Attributes = rawField.Attributes.Select(a => GetAttribute(rawClass, a)).ToArray(),
             };
             return field;
@@ -214,16 +239,79 @@ namespace JVMParser
             {
                 AccessFlags = rawMethod.AccessFlags,
                 Name = rawClass.RecursivelyResolveConstantPool(rawMethod.NameIndex),
-                Descriptor = rawClass.RecursivelyResolveConstantPool(rawMethod.DescriptorIndex),
-                // Descriptor = new JVMMethodDescriptor(rawClass, rawMethod.DescriptorIndex),
+                Descriptor = new JVMMethodDescriptor(rawClass.RecursivelyResolveConstantPool(rawMethod.DescriptorIndex)),
                 Attributes = rawMethod.Attributes.Select(a => GetAttribute(rawClass, a)).ToArray(),
             };
             return method;
         }
 
+        private static JVMCode GetCode(JVMClassRaw rawClass, byte[] code)
+        {
+            var jvmCode = new JVMCode
+            {
+                originalBytes = code,
+            };
+            jvmCode.Code = BitConverter.ToString(code);
+            return jvmCode;
+        }
+
+        private static JVMExceptionTable GetExceptionTable(Stream codeStream)
+        {
+            var exceptionTable = new JVMExceptionTable
+            {
+                StartPC = codeStream.ReadUInt16(),
+                EndPC = codeStream.ReadUInt16(),
+                HandlerPC = codeStream.ReadUInt16(),
+                CatchType = codeStream.ReadUInt16(),
+            };
+            return exceptionTable;
+        }
+
+        private static JVMLineNumberTable GetLineNumberTable(Stream tableStream)
+        {
+            var lineNumberTable = new JVMLineNumberTable
+            {
+                StartPC = tableStream.ReadUInt16(),
+                LineNumber = tableStream.ReadUInt16(),
+            };
+            return lineNumberTable;
+        }
+
         private static object ProcessAttributeData(JVMClassRaw rawClass, string attributeName, byte[] data)
         {
-            return BitConverter.ToString(data);
+            switch (attributeName)
+            {
+                case Constants.AttributeName.SOURCE_FILE:
+                    return rawClass.RecursivelyResolveConstantPool(BinaryPrimitives.ReadUInt16BigEndian(data));
+                case Constants.AttributeName.CONSTANT_VALUE:
+                    var poolIndex = BinaryPrimitives.ReadUInt16BigEndian(data);
+                    var constantPool = rawClass.ResolvePoolByIndex(poolIndex);
+                    return constantPool is JVMValueConstantPool valuePool
+                        ? valuePool.Value
+                        : rawClass.RecursivelyResolveConstantPool(poolIndex);
+                case Constants.AttributeName.CODE:
+                    var codeStream = new MemoryStream(data);
+                    var codeAttribute = new JVMCodeAttribute
+                    {
+                        MaxStack = codeStream.ReadUInt16(),
+                        MaxLocals = codeStream.ReadUInt16(),
+                        Code = GetCode(rawClass, codeStream.ReadBytes((int)codeStream.ReadUInt32())),
+                        ExceptionTables = GetArrayFromStream(codeStream, GetExceptionTable),
+                        Attributes = GetArrayFromStream(codeStream, GetRawAttribute)
+                            .Select(a => GetAttribute(rawClass, a))
+                            .ToArray(),
+                    };
+
+                    return codeStream.Position == codeStream.Length
+                        ? codeAttribute
+                        : throw new EndOfStreamException();
+                case Constants.AttributeName.LINE_NUMBER_TABLE:
+                    var tableStream = new MemoryStream(data);
+                    var lineNumberTable = GetArrayFromStream(tableStream, GetLineNumberTable);
+                    return lineNumberTable;
+                default:
+                    return BitConverter.ToString(data);
+            }
         }
 
         private static JVMAttribute GetAttribute(JVMClassRaw rawClass, JVMAttributeRaw rawAttribute)

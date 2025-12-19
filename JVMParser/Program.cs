@@ -2,23 +2,31 @@
 {
     class Program
     {
-        static void Main(string[] args)
+        internal static void Main(string[] args)
+        {
+            var testFileNames = new List<string>
+            {
+                "Test",
+                "ATest",
+                "ITest",
+            };
+
+            var parsedClasses = testFileNames
+                .Select(testFileName => (testFileName, ParseJVMBytecode(testFileName)))
+                .ToList();
+        }
+
+        private static JVMClass? ParseJVMBytecode(string fileName)
         {
             var testFolderPath = Path.GetFullPath("../../../../TestFiles");
-            var javaClassExtension = ".class";
+            const string javaClassExtension = ".class";
             
-            var testFile = "Test";
-            var abstractTestFile = "ATest";
-            var interfaceTestFile = "ITest";
-            
-            var testFilePath = Path.Join(testFolderPath, testFile + javaClassExtension);
+            var testFilePath = Path.Join(testFolderPath, fileName + javaClassExtension);
             var jvmClassRaw = JVMParser.Parse(testFilePath);
 
-            JVMClass jvmClass;
-            if (jvmClassRaw is not null)
-            {
-                jvmClass = JVMParser.RevolveJVMClass(jvmClassRaw);
-            }
+            return jvmClassRaw is not null
+                ? JVMParser.RevolveJVMClass(jvmClassRaw)
+                : null;
         }
     }
 }
