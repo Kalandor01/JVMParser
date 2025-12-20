@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 
 namespace JVMParser
 {
@@ -37,7 +36,7 @@ namespace JVMParser
                 : throw new KeyNotFoundException();
         }
 
-        public override string ToString()
+        public override string? ToString()
         {
             return $"{Tag}: {{ {string.Join(", ", ExtraData.Select(kv => $"{kv.Key} = {kv.Value}") ?? [])} }}";
         }
@@ -64,7 +63,7 @@ namespace JVMParser
             throw new KeyNotFoundException();
         }
 
-        public override string ToString()
+        public override string? ToString()
         {
             return $"{Tag}: {Value}";
         }
@@ -276,7 +275,7 @@ namespace JVMParser
             return $"{FieldType.ToString().ToLower()} {fieldName}";
         }
 
-        public override string ToString()
+        public override string? ToString()
         {
             return FieldType.ToString().ToLower();
         }
@@ -301,7 +300,7 @@ namespace JVMParser
             return $"{ClassName} {fieldName}";
         }
 
-        public override string ToString()
+        public override string? ToString()
         {
             return ClassName;
         }
@@ -326,7 +325,7 @@ namespace JVMParser
             return $"{Field}[] {fieldName}";
         }
 
-        public override string ToString()
+        public override string? ToString()
         {
             return $"{Field}[]";
         }
@@ -375,7 +374,7 @@ namespace JVMParser
             return $"{(ReturnType is not null ? ReturnType : "void")} {methodName}({string.Join(", ", Parameters)});";
         }
 
-        public override string ToString()
+        public override string? ToString()
         {
             return ToString();
         }
@@ -383,14 +382,26 @@ namespace JVMParser
     #endregion
 
     #region Attribute structs
+    public class JVMInstruction
+    {
+        public JVMOpcode Opcode;
+        public uint OriginalOffset;
+        public object[] Arguments;
+
+        public override string? ToString()
+        {
+            return $"{Opcode}{(Arguments.Length != 0 ? $": {string.Join(", ", Arguments)}" : "")}";
+        }
+    }
+    
     public class JVMCode
     {
-        public byte[] originalBytes;
-        public object Code;
+        public byte[] OriginalBytes;
+        public JVMInstruction[] Instructions;
 
-        public override string ToString()
+        public override string? ToString()
         {
-            return Code.ToString();
+            return OriginalBytes.ToString();
         }
     }
     
@@ -399,11 +410,11 @@ namespace JVMParser
         public ushort StartPC;
         public ushort EndPC;
         public ushort HandlerPC;
-        public ushort CatchType;
+        public string CatchTypeName;
 
-        public override string ToString()
+        public override string? ToString()
         {
-            return $"{CatchType}: {StartPC}-{EndPC} -> {HandlerPC}";
+            return $"{CatchTypeName}: {StartPC}-{EndPC} -> {HandlerPC}";
         }
     }
     
@@ -415,7 +426,7 @@ namespace JVMParser
         public JVMExceptionTable[] ExceptionTables;
         public JVMAttribute[] Attributes;
 
-        public override string ToString()
+        public override string? ToString()
         {
             return Code.ToString();
         }
@@ -426,9 +437,87 @@ namespace JVMParser
         public ushort StartPC;
         public ushort LineNumber;
 
-        public override string ToString()
+        public override string? ToString()
         {
             return $"{StartPC} -> {LineNumber}";
+        }
+    }
+
+    public class JVMVerificationTypeInfo
+    {
+        public JVMVerificationType Tag;
+
+        public JVMVerificationTypeInfo(JVMVerificationType tag)
+        {
+            Tag = tag;
+        }
+
+        public override string? ToString()
+        {
+            return Tag.ToString();
+        }
+    }
+
+    public class JVMObjectVerificationTypeInfo : JVMVerificationTypeInfo
+    {
+        public string ClassName;
+
+        public JVMObjectVerificationTypeInfo(string className)
+            : base(JVMVerificationType.OBJECT)
+        {
+            ClassName = className;
+        }
+
+        public override string? ToString()
+        {
+            return $"{Tag}: {ClassName}";
+        }
+    }
+
+    public class JVMUninitializedVerificationTypeInfo : JVMVerificationTypeInfo
+    {
+        public ushort Offset;
+
+        public JVMUninitializedVerificationTypeInfo(ushort offset)
+            : base(JVMVerificationType.UNINITIALIZED)
+        {
+            Offset = offset;
+        }
+
+        public override string? ToString()
+        {
+            return $"{Tag}: {Offset}";
+        }
+    }
+
+    public class JVMStackMapFrame
+    {
+        public JVMStackMapFrameType FrameType;
+        public byte FrameTypeNumber;
+
+        public JVMStackMapFrame(JVMStackMapFrameType frameType, byte frameTypeNumber)
+        {
+            FrameType = frameType;
+            FrameTypeNumber = frameTypeNumber;
+        }
+
+        public override string? ToString()
+        {
+            return FrameType.ToString();
+        }
+    }
+    
+    public class JVMStackMapFrameWithVerification : JVMStackMapFrame
+    {
+        public JVMVerificationTypeInfo[] Verifications;
+
+        public JVMStackMapFrameWithVerification(
+            JVMStackMapFrameType frameType,
+            byte frameTypeNumber,
+            JVMVerificationTypeInfo[] verifications)
+            : base(frameType, frameTypeNumber)
+        {
+            Verifications = verifications;
         }
     }
     #endregion
@@ -438,7 +527,7 @@ namespace JVMParser
         public string Name;
         public object Data;
 
-        public override string ToString()
+        public override string? ToString()
         {
             return $"{Name} => {Data}";
         }
@@ -451,7 +540,7 @@ namespace JVMParser
         public AJVMFieldDescriptor Descriptor;
         public JVMAttribute[] Attributes;
 
-        public override string ToString()
+        public override string? ToString()
         {
             return $"{(AccessFlags.Length != 0 ? $"{string.Join(" ", AccessFlags).ToLower()} " : "")}{Descriptor.ToString(Name)}";
         }
@@ -464,7 +553,7 @@ namespace JVMParser
         public JVMMethodDescriptor Descriptor;
         public JVMAttribute[] Attributes;
 
-        public override string ToString()
+        public override string? ToString()
         {
             return $"{(AccessFlags.Length != 0 ? $"{string.Join(" ", AccessFlags).ToLower()} " : "")}{Descriptor.ToString(Name)}";
         }
@@ -483,7 +572,7 @@ namespace JVMParser
         public JVMMethod[] Methods;
         public JVMAttribute[] Attributes;
 
-        public override string ToString()
+        public override string? ToString()
         {
             var accessFlagsStr = AccessFlags.Length != 0 ? $"{string.Join(" ", AccessFlags).ToLower()} " : "";
             return $"{accessFlagsStr}{ThisClass}{(SuperClass is not null ? $" : {SuperClass}" : "")} (v{MajorVersion}.{MinorVersion})";

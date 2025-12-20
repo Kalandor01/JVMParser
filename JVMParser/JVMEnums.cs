@@ -124,3 +124,84 @@ public enum JVMFieldType
     SHORT,
     BOOL,
 }
+
+public enum JVMStackMapFrameType
+{
+    /// <summary>
+    /// 0-63
+    /// </summary>
+    SAME_FRAME,
+    /// <summary>
+    /// 64-127
+    /// </summary>
+    SAME_LOCALS_1_STACK_ITEM_FRAME,
+    /// <summary>
+    /// 247
+    /// </summary>
+    SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED,
+    /// <summary>
+    /// 248-250
+    /// </summary>
+    CHOP_FRAME,
+    /// <summary>
+    /// 251
+    /// </summary>
+    SAME_FRAME_EXTENDED,
+    /// <summary>
+    /// 252-254
+    /// </summary>
+    APPEND_FRAME,
+    /// <summary>
+    /// 255
+    /// </summary>
+    FULL_FRAME,
+}
+
+public enum JVMVerificationType : byte
+{
+    TOP = 0,
+    INT = 1,
+    FLOAT = 2,
+    DOUBLE = 3,
+    LONG = 4,
+    NULL = 5,
+    UNINITIALIZED_THIS = 6,
+    OBJECT = 7,
+    UNINITIALIZED = 8,
+}
+
+public enum JVMOpcode : byte
+{
+    /// <summary>
+    /// Load double from 1. local variable.
+    /// </summary>
+    DLOAD_0 = 0x26,
+    /// <summary>
+    /// Load double from 2. local variable.
+    /// </summary>
+    DLOAD_1 = 0x27,
+    /// <summary>
+    /// Load double from 3. local variable.
+    /// </summary>
+    DLOAD_2 = 0x28,
+    /// <summary>
+    /// Load double from 4. local variable.
+    /// </summary>
+    DLOAD_3 = 0x29,
+    /// <summary>
+    /// Load reference from 1. local variable.
+    /// </summary>
+    ALOAD_0 = 0x2A,
+    /// <summary>
+    /// Load reference from 2. local variable.
+    /// </summary>
+    ALOAD_1 = 0x2B,
+    /// <summary>
+    /// Load reference from 3. local variable.
+    /// </summary>
+    ALOAD_2 = 0x2C,
+    /// <summary>
+    /// Load reference from 4. local variable.
+    /// </summary>
+    ALOAD_3 = 0x2D,
+}

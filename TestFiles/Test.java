@@ -33,8 +33,14 @@ public class Test extends ATest implements ITest
 
     @Override
     public String[] ImplementMethod() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'ImplementMethod'");
+        try
+        {
+            throw new UnsupportedOperationException("Unimplemented method 'ImplementMethod'");
+        }
+        catch (ArrayIndexOutOfBoundsException ex)
+        {
+            return new String[0];
+        }
     }
 
     @Override

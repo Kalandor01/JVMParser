@@ -93,6 +93,15 @@ namespace JVMParser
         {
             return GetArrayFromStream(stream, stream.ReadUInt16(), itemProcessor);
         }
+
+        private static T[] GetArrayFromBytes<T>(byte[] bytes, Func<Stream, T> itemProcessor)
+        {
+            var stream = new MemoryStream(bytes);
+            var array = GetArrayFromStream(stream, itemProcessor);
+            return stream.Position == stream.Length
+                ? array
+                : throw new EndOfStreamException();
+        }
         
         private static JVMConstantPool[] GetConstantPools(Stream stream)
         {
@@ -245,24 +254,51 @@ namespace JVMParser
             return method;
         }
 
+        #region Attribute data methods
+        private static JVMInstruction ParseInstruction(JVMClassRaw rawClass, Stream codeStream)
+        {
+            var offset = codeStream.Position;
+            var opcode = (JVMOpcode)(byte)codeStream.ReadByte();
+
+            object[] arguments = opcode switch
+            {
+                JVMOpcode.ALOAD_0 or JVMOpcode.ALOAD_1 or JVMOpcode.ALOAD_2 or JVMOpcode.ALOAD_3 or JVMOpcode.DLOAD_0 or JVMOpcode.DLOAD_1 or JVMOpcode.DLOAD_2 or
+                    JVMOpcode.DLOAD_3 => [],
+                _ => throw new ArgumentOutOfRangeException(nameof(opcode), opcode, null)
+            };
+
+            return new JVMInstruction
+            {
+                Opcode = opcode,
+                OriginalOffset = (uint)offset,
+                Arguments = arguments.ToArray(),
+            };
+        }
+        
         private static JVMCode GetCode(JVMClassRaw rawClass, byte[] code)
         {
-            var jvmCode = new JVMCode
+            var codeStream = new MemoryStream(code);
+            var instructions = new List<JVMInstruction>();
+            while (codeStream.Length != codeStream.Position)
             {
-                originalBytes = code,
+                instructions.Add(ParseInstruction(rawClass, codeStream));
+            }
+            
+            return new JVMCode
+            {
+                Instructions = instructions.ToArray(),
+                OriginalBytes = code,
             };
-            jvmCode.Code = BitConverter.ToString(code);
-            return jvmCode;
         }
 
-        private static JVMExceptionTable GetExceptionTable(Stream codeStream)
+        private static JVMExceptionTable GetExceptionTable(JVMClassRaw rawClass, Stream codeStream)
         {
             var exceptionTable = new JVMExceptionTable
             {
                 StartPC = codeStream.ReadUInt16(),
                 EndPC = codeStream.ReadUInt16(),
                 HandlerPC = codeStream.ReadUInt16(),
-                CatchType = codeStream.ReadUInt16(),
+                CatchTypeName = rawClass.RecursivelyResolveConstantPool(codeStream.ReadUInt16()),
             };
             return exceptionTable;
         }
@@ -276,6 +312,58 @@ namespace JVMParser
             };
             return lineNumberTable;
         }
+
+        private static JVMStackMapFrameType GetStackFrameType(byte stackFrameTypeNumber)
+        {
+            return stackFrameTypeNumber switch
+            {
+                <= 63 => JVMStackMapFrameType.SAME_FRAME,
+                <= 127 => JVMStackMapFrameType.SAME_LOCALS_1_STACK_ITEM_FRAME,
+                247 => JVMStackMapFrameType.SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED,
+                >= 248 and <= 250 => JVMStackMapFrameType.CHOP_FRAME,
+                251 => JVMStackMapFrameType.SAME_FRAME_EXTENDED,
+                >= 252 and <= 254 => JVMStackMapFrameType.APPEND_FRAME,
+                255 => JVMStackMapFrameType.FULL_FRAME,
+                _ => throw new ArgumentOutOfRangeException(nameof(stackFrameTypeNumber), stackFrameTypeNumber, null)
+            };
+        }
+
+        private static JVMVerificationTypeInfo GetVerificationTypeInfo(JVMClassRaw rawClass, Stream stream)
+        {
+            var verificationType = (JVMVerificationType)(byte)stream.ReadByte();
+            return verificationType switch
+            {
+                JVMVerificationType.TOP or JVMVerificationType.INT or JVMVerificationType.FLOAT
+                    or JVMVerificationType.DOUBLE or JVMVerificationType.LONG or JVMVerificationType.NULL
+                    or JVMVerificationType.UNINITIALIZED_THIS => new JVMVerificationTypeInfo(verificationType),
+                JVMVerificationType.OBJECT => new JVMObjectVerificationTypeInfo(rawClass.RecursivelyResolveConstantPool(stream.ReadUInt16())),
+                JVMVerificationType.UNINITIALIZED => new JVMUninitializedVerificationTypeInfo(stream.ReadUInt16()),
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
+
+        private static JVMStackMapFrame GetStackMapFrame(JVMClassRaw rawClass, Stream tableStream)
+        {
+            var frameTypeNum = (byte)tableStream.ReadByte();
+            var frameType = GetStackFrameType(frameTypeNum);
+
+            return frameType switch
+            {
+                JVMStackMapFrameType.SAME_FRAME => new JVMStackMapFrame(frameType, frameTypeNum),
+                JVMStackMapFrameType.SAME_LOCALS_1_STACK_ITEM_FRAME => new JVMStackMapFrameWithVerification(
+                        frameType,
+                        frameTypeNum,
+                        [GetVerificationTypeInfo(rawClass, tableStream)]
+                    ),
+                // JVMStackMapFrameType.SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED => null,
+                // JVMStackMapFrameType.CHOP_FRAME => null,
+                // JVMStackMapFrameType.SAME_FRAME_EXTENDED => null,
+                // JVMStackMapFrameType.APPEND_FRAME => null,
+                // JVMStackMapFrameType.FULL_FRAME => null,
+                _ => throw new ArgumentOutOfRangeException(nameof(frameType), frameType, null)
+            };
+        }
+        #endregion
 
         private static object ProcessAttributeData(JVMClassRaw rawClass, string attributeName, byte[] data)
         {
@@ -296,7 +384,7 @@ namespace JVMParser
                         MaxStack = codeStream.ReadUInt16(),
                         MaxLocals = codeStream.ReadUInt16(),
                         Code = GetCode(rawClass, codeStream.ReadBytes((int)codeStream.ReadUInt32())),
-                        ExceptionTables = GetArrayFromStream(codeStream, GetExceptionTable),
+                        ExceptionTables = GetArrayFromStream(codeStream, stream => GetExceptionTable(rawClass, stream)),
                         Attributes = GetArrayFromStream(codeStream, GetRawAttribute)
                             .Select(a => GetAttribute(rawClass, a))
                             .ToArray(),
@@ -306,9 +394,9 @@ namespace JVMParser
                         ? codeAttribute
                         : throw new EndOfStreamException();
                 case Constants.AttributeName.LINE_NUMBER_TABLE:
-                    var tableStream = new MemoryStream(data);
-                    var lineNumberTable = GetArrayFromStream(tableStream, GetLineNumberTable);
-                    return lineNumberTable;
+                    return GetArrayFromBytes(data, GetLineNumberTable);
+                case Constants.AttributeName.STACK_MAP_TABLE:
+                    return GetArrayFromBytes(data, (stream) => GetStackMapFrame(rawClass, stream));
                 default:
                     return BitConverter.ToString(data);
             }
