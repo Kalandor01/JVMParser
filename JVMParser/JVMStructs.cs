@@ -120,19 +120,57 @@ namespace JVMParser
             return false;
         }
         
-        public JVMConstantPool ResolvePoolByIndex(ushort propertyIndex)
+        public JVMConstantPool ResolvePoolByIndex(ushort poolIndex)
         {
-            return ConstantPools[propertyIndex - 1];
+            return ConstantPools[poolIndex - 1];
         }
         
-        public object ResolveValuePoolValueByIndex(ushort propertyIndex)
+        private (string className, string typeName, IJVMDescriptor typeDescriptor) ResolveRefPool(JVMConstantPool refPool)
         {
-            return ((JVMValueConstantPool)ConstantPools[propertyIndex - 1]).Value;
+            var isField = refPool.Tag == JVMConstantPoolTag.FIELD_REF;
+            var natPool = ResolvePoolByIndex((ushort)refPool.ExtraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX]);
+            
+            var className = RecursivelyResolveConstantPool((ushort)refPool.ExtraData[Constants.ConstantPoolExtraPropertyName.CLASS_INDEX]);
+            var name = RecursivelyResolveConstantPool((ushort)natPool.ExtraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX]);
+            var descriptorStr = RecursivelyResolveConstantPool((ushort)natPool.ExtraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX]);
+            IJVMDescriptor descriptor = isField
+                ? AJVMFieldDescriptor.ParseDescriptor(descriptorStr)
+                : new JVMMethodDescriptor(descriptorStr);
+            return (className, name, descriptor);
         }
         
-        public T ResolveValuePoolValueByIndex<T>(ushort propertyIndex)
+        public (string className, string typeName, AJVMFieldDescriptor typeDescriptor) ResolveFieldRefPoolByIndex(ushort refIndex)
         {
-            return (T)ResolveValuePoolValueByIndex(propertyIndex);
+            var refPool = ResolvePoolByIndex(refIndex);
+            if (refPool.Tag != JVMConstantPoolTag.FIELD_REF)
+            {
+                throw new ArgumentException("Constant pool at index is not a field ref: " + refIndex);
+            }
+
+            var res = ResolveRefPool(refPool);
+            return (res.className, res.typeName, (AJVMFieldDescriptor)res.typeDescriptor);
+        }
+        
+        public (string className, string typeName, JVMMethodDescriptor typeDescriptor) ResolveMethodRefPoolByIndex(ushort refIndex)
+        {
+            var refPool = ResolvePoolByIndex(refIndex);
+            if (refPool.Tag == JVMConstantPoolTag.FIELD_REF)
+            {
+                throw new ArgumentException("Constant pool at index is not a method ref: " + refIndex);
+            }
+
+            var res = ResolveRefPool(refPool);
+            return (res.className, res.typeName, (JVMMethodDescriptor)res.typeDescriptor);
+        }
+        
+        public object ResolveValuePoolValueByIndex(ushort poolIndex)
+        {
+            return ((JVMValueConstantPool)ConstantPools[poolIndex - 1]).Value;
+        }
+        
+        public T ResolveValuePoolValueByIndex<T>(ushort poolIndex)
+        {
+            return (T)ResolveValuePoolValueByIndex(poolIndex);
         }
 
         public string RecursivelyResolveConstantPool(ushort index)

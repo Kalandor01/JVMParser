@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace JVMParser
@@ -110,7 +111,7 @@ namespace JVMParser
             for (var x = 1; x < constantPoolCount; x++)
             {
                 var tag = (JVMConstantPoolTag)stream.ReadByte();
-                var constantPool = GetJVMConstantPool(stream, tag, out var addExtra);
+                var constantPool = GetJVMConstantPoolData(stream, tag, out var addExtra);
                 constantPools.Add(constantPool);
                 if (addExtra)
                 {
@@ -121,7 +122,7 @@ namespace JVMParser
             return constantPools.ToArray();
         }
         
-        private static JVMConstantPool GetJVMConstantPool(Stream stream, JVMConstantPoolTag tag, out bool addExtra)
+        private static JVMConstantPool GetJVMConstantPoolData(Stream stream, JVMConstantPoolTag tag, out bool addExtra)
         {
             addExtra = false;
             var extraData = new Dictionary<string, object>();
@@ -254,16 +255,56 @@ namespace JVMParser
             return method;
         }
 
+        private static IEnumerable<object> TupleToArray(ITuple tuple)
+        {
+            for (var x = 0; x < tuple.Length; x++)
+            {
+                yield return tuple[x];
+            }
+        }
+
         #region Attribute data methods
+        private static object ResolveValueFromPool(JVMClassRaw rawClass, ushort poolIndex)
+        {
+            var pool = rawClass.ResolvePoolByIndex(poolIndex);
+            return pool.Tag switch
+            {
+                JVMConstantPoolTag.UTF8 or JVMConstantPoolTag.INTEGER or JVMConstantPoolTag.FLOAT or JVMConstantPoolTag.LONG or JVMConstantPoolTag.DOUBLE
+                    => rawClass.ResolveValuePoolValueByIndex(poolIndex),
+                JVMConstantPoolTag.STRING => rawClass.RecursivelyResolveConstantPool(poolIndex),
+                // JVMConstantPoolTag.CLASS => ,
+                // JVMConstantPoolTag.FIELD_REF => ,
+                // JVMConstantPoolTag.METHOD_REF => ,
+                // JVMConstantPoolTag.INTERFACE_METHOD_REF => ,
+                // JVMConstantPoolTag.NAME_AND_TYPE => ,
+                // JVMConstantPoolTag.METHOD_HANDLE => ,
+                // JVMConstantPoolTag.METHOD_TYPE => ,
+                // JVMConstantPoolTag.DYNAMIC => ,
+                // JVMConstantPoolTag.INVOKE_DYNAMIC => ,
+                // JVMConstantPoolTag.MODULE => ,
+                // JVMConstantPoolTag.PACKAGE => ,
+                _ => throw new ArgumentOutOfRangeException(nameof(pool.Tag), pool.Tag, null)
+            };
+        }
+        
         private static JVMInstruction ParseInstruction(JVMClassRaw rawClass, Stream codeStream)
         {
             var offset = codeStream.Position;
             var opcode = (JVMOpcode)(byte)codeStream.ReadByte();
 
-            object[] arguments = opcode switch
+            var arguments = opcode switch
             {
-                JVMOpcode.ALOAD_0 or JVMOpcode.ALOAD_1 or JVMOpcode.ALOAD_2 or JVMOpcode.ALOAD_3 or JVMOpcode.DLOAD_0 or JVMOpcode.DLOAD_1 or JVMOpcode.DLOAD_2 or
-                    JVMOpcode.DLOAD_3 => [],
+                JVMOpcode.NOP or JVMOpcode.ACONST_NULL or JVMOpcode.ICONST_NEG_1 or JVMOpcode.ICONST_0 or JVMOpcode.ICONST_1 or JVMOpcode.ICONST_2 or JVMOpcode.ICONST_3 or
+                    JVMOpcode.ICONST_4 or JVMOpcode.ICONST_5 or JVMOpcode.ALOAD_0 or JVMOpcode.ALOAD_1 or JVMOpcode.ALOAD_2 or JVMOpcode.ALOAD_3 or JVMOpcode.DLOAD_0 or
+                    JVMOpcode.DLOAD_1 or JVMOpcode.DLOAD_2 or JVMOpcode.DLOAD_3 or JVMOpcode.DUP or JVMOpcode.DASTORE or JVMOpcode.RETURN or JVMOpcode.ARETURN or
+                    JVMOpcode.ASTORE_0 or JVMOpcode.ASTORE_1 or JVMOpcode.ASTORE_2 or JVMOpcode.ASTORE_3 or JVMOpcode.ATHROW
+                        => [],
+                JVMOpcode.INVOKE_SPECIAL or JVMOpcode.INVOKE_VIRTUAL => TupleToArray(rawClass.ResolveMethodRefPoolByIndex(codeStream.ReadUInt16())),
+                JVMOpcode.NEW_ARRAY => [(JVMArrayType)codeStream.ReadByte()],
+                JVMOpcode.LOAD_CONST_WIDE => [rawClass.ResolveValuePoolValueByIndex(codeStream.ReadUInt16())],
+                JVMOpcode.PUT_FIELD or JVMOpcode.GET_STATIC => TupleToArray(rawClass.ResolveFieldRefPoolByIndex(codeStream.ReadUInt16())),
+                JVMOpcode.LDC => [ResolveValueFromPool(rawClass, (byte)codeStream.ReadByte())],
+                JVMOpcode.NEW or JVMOpcode.ANEW_ARRAY => [rawClass.RecursivelyResolveConstantPool(codeStream.ReadUInt16())],
                 _ => throw new ArgumentOutOfRangeException(nameof(opcode), opcode, null)
             };
 
@@ -396,7 +437,7 @@ namespace JVMParser
                 case Constants.AttributeName.LINE_NUMBER_TABLE:
                     return GetArrayFromBytes(data, GetLineNumberTable);
                 case Constants.AttributeName.STACK_MAP_TABLE:
-                    return GetArrayFromBytes(data, (stream) => GetStackMapFrame(rawClass, stream));
+                    return GetArrayFromBytes(data, stream => GetStackMapFrame(rawClass, stream));
                 default:
                     return BitConverter.ToString(data);
             }

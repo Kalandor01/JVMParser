@@ -173,6 +173,50 @@ public enum JVMVerificationType : byte
 public enum JVMOpcode : byte
 {
     /// <summary>
+    /// Do nothing.
+    /// </summary>
+    NOP = 0x0,
+    /// <summary>
+    /// Push null.
+    /// </summary>
+    ACONST_NULL = 0x1,
+    /// <summary>
+    /// Push int constant -1.
+    /// </summary>
+    ICONST_NEG_1 = 0x2,
+    /// <summary>
+    /// Push int constant 0.
+    /// </summary>
+    ICONST_0 = 0x3,
+    /// <summary>
+    /// Push int constant 1.
+    /// </summary>
+    ICONST_1 = 0x4,
+    /// <summary>
+    /// Push int constant 2.
+    /// </summary>
+    ICONST_2 = 0x5,
+    /// <summary>
+    /// Push int constant 3.
+    /// </summary>
+    ICONST_3 = 0x6,
+    /// <summary>
+    /// Push int constant 4.
+    /// </summary>
+    ICONST_4 = 0x7,
+    /// <summary>
+    /// Push int constant 5.
+    /// </summary>
+    ICONST_5 = 0x8,
+    /// <summary>
+    /// Push long or double from run-time constant pool (wide index).
+    /// </summary>
+    LOAD_CONST_WIDE = 0x14,
+    /// <summary>
+    /// Push item from run-time constant pool.
+    /// </summary>
+    LDC = 0x12,
+    /// <summary>
     /// Load double from 1. local variable.
     /// </summary>
     DLOAD_0 = 0x26,
@@ -204,4 +248,80 @@ public enum JVMOpcode : byte
     /// Load reference from 4. local variable.
     /// </summary>
     ALOAD_3 = 0x2D,
+    /// <summary>
+    /// Store reference into 1. local variable.
+    /// </summary>
+    ASTORE_0 = 0x4b,
+    /// <summary>
+    /// Store reference into 2. local variable.
+    /// </summary>
+    ASTORE_1 = 0x4c,
+    /// <summary>
+    /// Store reference into 3. local variable.
+    /// </summary>
+    ASTORE_2 = 0x4d,
+    /// <summary>
+    /// Store reference into 4. local variable.
+    /// </summary>
+    ASTORE_3 = 0x4e,
+    /// <summary>
+    /// Store into double array.
+    /// </summary>
+    DASTORE = 0x52,
+    /// <summary>
+    /// Duplicate the top operand stack value.
+    /// </summary>
+    DUP = 0x59,
+    /// <summary>
+    /// Return reference from method.
+    /// </summary>
+    ARETURN = 0xb0,
+    /// <summary>
+    /// Return void from method.
+    /// </summary>
+    RETURN = 0xb1,
+    /// <summary>
+    /// Get static field from class.
+    /// </summary>
+    GET_STATIC = 0xb2,
+    /// <summary>
+    /// Set field in object.
+    /// </summary>
+    PUT_FIELD = 0xb5,
+    /// <summary>
+    /// Invoke instance method; dispatch based on class.
+    /// </summary>
+    INVOKE_VIRTUAL = 0xb6,
+    /// <summary>
+    /// Invoke instance method; special handling for superclass, private, and instance initialization method invocations.
+    /// </summary>
+    INVOKE_SPECIAL = 0xb7,
+    /// <summary>
+    /// Create new object.
+    /// </summary>
+    NEW = 0xbb,
+    /// <summary>
+    /// Create new array.
+    /// </summary>
+    NEW_ARRAY = 0xbc,
+    /// <summary>
+    /// Create new array of reference.
+    /// </summary>
+    ANEW_ARRAY = 0xbd,
+    /// <summary>
+    /// Throw exception or error.
+    /// </summary>
+    ATHROW = 0xbf,
+}
+
+public enum JVMArrayType : byte
+{
+    BOOLEAN = 4,
+    CHAR = 5,
+    FLOAT = 6,
+    DOUBLE = 7,
+    BYTE = 8,
+    SHORT = 9,
+    INT = 10,
+    LONG = 11,
 }
