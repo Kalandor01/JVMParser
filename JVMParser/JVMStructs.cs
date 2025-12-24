@@ -90,6 +90,34 @@ namespace JVMParser
         public ushort AttributeNameIndex;
         public byte[] Data;
     }
+
+    public class JVMFieldRef
+    {
+        public string ClassName;
+        public string TypeName;
+        public AJVMFieldDescriptor Descriptor;
+        
+        public JVMFieldRef(string className, string typeName, AJVMFieldDescriptor descriptor)
+        {
+            ClassName = className;
+            TypeName = typeName;
+            Descriptor = descriptor;
+        }
+    }
+
+    public class JVMMethodRef
+    {
+        public string ClassName;
+        public string TypeName;
+        public JVMMethodDescriptor Descriptor;
+        
+        public JVMMethodRef(string className, string typeName, JVMMethodDescriptor descriptor)
+        {
+            ClassName = className;
+            TypeName = typeName;
+            Descriptor = descriptor;
+        }
+    }
     
     public class JVMClassRaw
     {
@@ -139,7 +167,7 @@ namespace JVMParser
             return (className, name, descriptor);
         }
         
-        public (string className, string typeName, AJVMFieldDescriptor typeDescriptor) ResolveFieldRefPoolByIndex(ushort refIndex)
+        public JVMFieldRef ResolveFieldRefPoolByIndex(ushort refIndex)
         {
             var refPool = ResolvePoolByIndex(refIndex);
             if (refPool.Tag != JVMConstantPoolTag.FIELD_REF)
@@ -148,10 +176,10 @@ namespace JVMParser
             }
 
             var res = ResolveRefPool(refPool);
-            return (res.className, res.typeName, (AJVMFieldDescriptor)res.typeDescriptor);
+            return new JVMFieldRef(res.className, res.typeName, (AJVMFieldDescriptor)res.typeDescriptor);
         }
         
-        public (string className, string typeName, JVMMethodDescriptor typeDescriptor) ResolveMethodRefPoolByIndex(ushort refIndex)
+        public JVMMethodRef ResolveMethodRefPoolByIndex(ushort refIndex)
         {
             var refPool = ResolvePoolByIndex(refIndex);
             if (refPool.Tag == JVMConstantPoolTag.FIELD_REF)
@@ -160,7 +188,7 @@ namespace JVMParser
             }
 
             var res = ResolveRefPool(refPool);
-            return (res.className, res.typeName, (JVMMethodDescriptor)res.typeDescriptor);
+            return new JVMMethodRef(res.className, res.typeName, (JVMMethodDescriptor)res.typeDescriptor);
         }
         
         public object ResolveValuePoolValueByIndex(ushort poolIndex)

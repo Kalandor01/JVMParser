@@ -16,6 +16,11 @@ public static class StreamExtension
     {
         return BitConverter.ToString(stream.ReadBytes(count));
     }
+    
+    public static byte ReadByteB(this Stream stream)
+    {
+        return (byte)stream.ReadByte();
+    }
 
     public static ushort ReadUInt16(this Stream stream)
     {

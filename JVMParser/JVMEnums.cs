@@ -173,145 +173,326 @@ public enum JVMVerificationType : byte
 public enum JVMOpcode : byte
 {
     /// <summary>
-    /// Do nothing.
+    /// Do nothing.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; -
     /// </summary>
     NOP = 0x0,
     /// <summary>
-    /// Push null.
+    /// Push null.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; null
     /// </summary>
     ACONST_NULL = 0x1,
     /// <summary>
-    /// Push int constant -1.
+    /// Push int constant -1.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; -1
     /// </summary>
     ICONST_NEG_1 = 0x2,
     /// <summary>
-    /// Push int constant 0.
+    /// Push int constant 0.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 0
     /// </summary>
     ICONST_0 = 0x3,
     /// <summary>
-    /// Push int constant 1.
+    /// Push int constant 1.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 1
     /// </summary>
     ICONST_1 = 0x4,
     /// <summary>
-    /// Push int constant 2.
+    /// Push int constant 2.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 2
     /// </summary>
     ICONST_2 = 0x5,
     /// <summary>
-    /// Push int constant 3.
+    /// Push int constant 3.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 3
     /// </summary>
     ICONST_3 = 0x6,
     /// <summary>
-    /// Push int constant 4.
+    /// Push int constant 4.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 4
     /// </summary>
     ICONST_4 = 0x7,
     /// <summary>
-    /// Push int constant 5.
+    /// Push int constant 5.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 5
     /// </summary>
     ICONST_5 = 0x8,
     /// <summary>
-    /// Push long or double from run-time constant pool (wide index).
+    /// Push long constant 0.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 0L
     /// </summary>
-    LOAD_CONST_WIDE = 0x14,
+    LCONST_0 = 0x9,
     /// <summary>
-    /// Push item from run-time constant pool.
+    /// Push long constant 1.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 1L
+    /// </summary>
+    LCONST_1 = 0xA,
+    /// <summary>
+    /// Push float 0.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 0F
+    /// </summary>
+    FCONST_0 = 0xB,
+    /// <summary>
+    /// Push float 1.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 1F
+    /// </summary>
+    FCONST_1 = 0xC,
+    /// <summary>
+    /// Push float 2.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 2F
+    /// </summary>
+    FCONST_2 = 0xD,
+    /// <summary>
+    /// Push double 0.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 0D
+    /// </summary>
+    DCONST_0 = 0xE,
+    /// <summary>
+    /// Push double 1.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; 1D
+    /// </summary>
+    DCONST_1 = 0xF,
+    /// <summary>
+    /// Push byte.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; arg1
+    /// </summary>
+    BIPUSH = 0x10,
+    /// <summary>
+    /// Push short.<br/>
+    /// args: ushort<br/>
+    /// &lt;- -<br/>
+    /// -&gt; arg1
+    /// </summary>
+    SIPUSH = 0x11,
+    /// <summary>
+    /// Push item from run-time constant pool.<br/>
+    /// args: int/float/reference<br/>
+    /// &lt;- -<br/>
+    /// -&gt; arg1
     /// </summary>
     LDC = 0x12,
     /// <summary>
-    /// Load double from 1. local variable.
+    /// Push item from run-time constant pool (wide index).<br/>
+    /// args: int/float/reference<br/>
+    /// &lt;- -<br/>
+    /// -&gt; arg1
+    /// </summary>
+    LDC_W = 0x13,
+    /// <summary>
+    /// Push long or double from run-time constant pool (wide index).<br/>
+    /// args: long/double<br/>
+    /// &lt;- -<br/>
+    /// -&gt; arg1
+    /// </summary>
+    LOAD_CONST_WIDE = 0x14,
+    /// <summary>
+    /// Load double from 1. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; local1
     /// </summary>
     DLOAD_0 = 0x26,
     /// <summary>
-    /// Load double from 2. local variable.
+    /// Load double from 2. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; local2
     /// </summary>
     DLOAD_1 = 0x27,
     /// <summary>
-    /// Load double from 3. local variable.
+    /// Load double from 3. local variable.<br/>
+    /// args: -br/>
+    /// &lt;- -<br/>
+    /// -&gt; local3
     /// </summary>
     DLOAD_2 = 0x28,
     /// <summary>
-    /// Load double from 4. local variable.
+    /// Load double from 4. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; local4
     /// </summary>
     DLOAD_3 = 0x29,
     /// <summary>
-    /// Load reference from 1. local variable.
+    /// Load reference from 1. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; local1
     /// </summary>
     ALOAD_0 = 0x2A,
     /// <summary>
-    /// Load reference from 2. local variable.
+    /// Load reference from 2. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; local2
     /// </summary>
     ALOAD_1 = 0x2B,
     /// <summary>
-    /// Load reference from 3. local variable.
+    /// Load reference from 3. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; local3
     /// </summary>
     ALOAD_2 = 0x2C,
     /// <summary>
-    /// Load reference from 4. local variable.
+    /// Load reference from 4. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; local4
     /// </summary>
     ALOAD_3 = 0x2D,
     /// <summary>
-    /// Store reference into 1. local variable.
+    /// Store reference into 1. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- reference<br/>
+    /// -&gt; -<br/>
+    /// reference -&gt; local1
     /// </summary>
-    ASTORE_0 = 0x4b,
+    ASTORE_0 = 0x4B,
     /// <summary>
-    /// Store reference into 2. local variable.
+    /// Store reference into 2. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- reference<br/>
+    /// -&gt; -<br/>
+    /// reference -&gt; local2
     /// </summary>
-    ASTORE_1 = 0x4c,
+    ASTORE_1 = 0x4C,
     /// <summary>
-    /// Store reference into 3. local variable.
+    /// Store reference into 3. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- reference<br/>
+    /// -&gt; -<br/>
+    /// reference -&gt; local3
     /// </summary>
-    ASTORE_2 = 0x4d,
+    ASTORE_2 = 0x4D,
     /// <summary>
-    /// Store reference into 4. local variable.
+    /// Store reference into 4. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- reference<br/>
+    /// -&gt; -<br/>
+    /// reference -&gt; local4
     /// </summary>
-    ASTORE_3 = 0x4e,
+    ASTORE_3 = 0x4E,
     /// <summary>
-    /// Store into double array.
+    /// Store into double array.<br/>
+    /// args: -<br/>
+    /// &lt;- double[] ref, int, double<br/>
+    /// -&gt; -
     /// </summary>
     DASTORE = 0x52,
     /// <summary>
-    /// Duplicate the top operand stack value.
+    /// Duplicate the top operand stack value.<br/>
+    /// args: -<br/>
+    /// &lt;- value<br/>
+    /// -&gt; value, value
     /// </summary>
     DUP = 0x59,
     /// <summary>
-    /// Return reference from method.
+    /// Return reference from method.<br/>
+    /// args: -<br/>
+    /// &lt;- reference<br/>
+    /// -&gt; [CLEAR]<br/>
+    /// reference -&gt; invoker
     /// </summary>
-    ARETURN = 0xb0,
+    ARETURN = 0xB0,
     /// <summary>
-    /// Return void from method.
+    /// Return void from method.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; [CLEAR]
     /// </summary>
-    RETURN = 0xb1,
+    RETURN = 0xB1,
     /// <summary>
-    /// Get static field from class.
+    /// Get static field from class.<br/>
+    /// args: <see cref="JVMFieldRef"/><br/>
+    /// &lt;- -<br/>
+    /// -&gt; field ref
     /// </summary>
-    GET_STATIC = 0xb2,
+    GET_STATIC = 0xB2,
     /// <summary>
-    /// Set field in object.
+    /// Set field in object.<br/>
+    /// args: <see cref="JVMFieldRef"/><br/>
+    /// &lt;- objectRef, value<br/>
+    /// -&gt; -<br/>
+    /// value -&gt; objectRef.arg1.value
     /// </summary>
-    PUT_FIELD = 0xb5,
+    PUT_FIELD = 0xB5,
     /// <summary>
-    /// Invoke instance method; dispatch based on class.
+    /// Invoke instance method; dispatch based on class.<br/>
+    /// args: <see cref="JVMMethodRef"/><br/>
+    /// &lt;- objectRef, value * methodRef.descriptor.args.Length<br/>
+    /// -&gt; -
     /// </summary>
-    INVOKE_VIRTUAL = 0xb6,
+    INVOKE_VIRTUAL = 0xB6,
     /// <summary>
-    /// Invoke instance method; special handling for superclass, private, and instance initialization method invocations.
+    /// Invoke instance method; special handling for superclass, private, and instance initialization method invocations.<br/>
+    /// args: <see cref="JVMMethodRef"/><br/>
+    /// &lt;- objectRef, value * methodRef.descriptor.args.Length<br/>
+    /// -&gt; -
     /// </summary>
-    INVOKE_SPECIAL = 0xb7,
+    INVOKE_SPECIAL = 0xB7,
     /// <summary>
-    /// Create new object.
+    /// Create new object.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; -
     /// </summary>
-    NEW = 0xbb,
+    NEW = 0xBB, // TODO:                                 CONTINUE DOCUMENTING HERE!!!
     /// <summary>
-    /// Create new array.
+    /// Create new array.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; -
     /// </summary>
-    NEW_ARRAY = 0xbc,
+    NEW_ARRAY = 0xBC,
     /// <summary>
-    /// Create new array of reference.
+    /// Create new array of reference.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; -
     /// </summary>
-    ANEW_ARRAY = 0xbd,
+    ANEW_ARRAY = 0xBD,
     /// <summary>
-    /// Throw exception or error.
+    /// Throw exception or error.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; -
     /// </summary>
-    ATHROW = 0xbf,
+    ATHROW = 0xBF,
 }
 
 public enum JVMArrayType : byte
