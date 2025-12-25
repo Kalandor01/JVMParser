@@ -438,14 +438,14 @@ public enum JVMOpcode : byte
     RETURN = 0xB1,
     /// <summary>
     /// Get static field from class.<br/>
-    /// args: <see cref="JVMFieldRef"/><br/>
+    /// args: <see cref="JVMRefConstantPool"/> (field)<br/>
     /// &lt;- -<br/>
     /// -&gt; field ref
     /// </summary>
     GET_STATIC = 0xB2,
     /// <summary>
     /// Set field in object.<br/>
-    /// args: <see cref="JVMFieldRef"/><br/>
+    /// args: <see cref="JVMRefConstantPool"/> (field)<br/>
     /// &lt;- objectRef, value<br/>
     /// -&gt; -<br/>
     /// value -&gt; objectRef.arg1.value
@@ -453,14 +453,14 @@ public enum JVMOpcode : byte
     PUT_FIELD = 0xB5,
     /// <summary>
     /// Invoke instance method; dispatch based on class.<br/>
-    /// args: <see cref="JVMMethodRef"/><br/>
+    /// args: <see cref="JVMRefConstantPool"/> (method)<br/>
     /// &lt;- objectRef, value * methodRef.descriptor.args.Length<br/>
     /// -&gt; -
     /// </summary>
     INVOKE_VIRTUAL = 0xB6,
     /// <summary>
     /// Invoke instance method; special handling for superclass, private, and instance initialization method invocations.<br/>
-    /// args: <see cref="JVMMethodRef"/><br/>
+    /// args: <see cref="JVMRefConstantPool"/> (method)<br/>
     /// &lt;- objectRef, value * methodRef.descriptor.args.Length<br/>
     /// -&gt; -
     /// </summary>

@@ -4,6 +4,7 @@ internal class Constants
 {
     public class ConstantPoolExtraPropertyName
     {
+        public const string VALUE = "value";
         public const string NAME_INDEX = "name_index";
         public const string STRING_INDEX = "string_index";
         public const string CLASS_INDEX = "class_index";

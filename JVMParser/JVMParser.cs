@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace JVMParser
@@ -45,9 +44,9 @@ namespace JVMParser
                 MajorVersion = jvmClassRaw.MajorVersion,
                 MinorVersion = jvmClassRaw.MinorVersion,
                 AccessFlags = jvmClassRaw.AccessFlags,
-                ThisClass = jvmClassRaw.RecursivelyResolveConstantPool(jvmClassRaw.ThisClassIndex),
+                ThisClass = jvmClassRaw.ResolveValuePoolValueByIndex<string>(jvmClassRaw.ThisClassIndex),
                 SuperClass = jvmClassRaw.SuperClassIndex != 0
-                    ? jvmClassRaw.RecursivelyResolveConstantPool(jvmClassRaw.SuperClassIndex)
+                    ? jvmClassRaw.ResolveValuePoolValueByIndex<string>(jvmClassRaw.SuperClassIndex)
                     : null,
                 Interfaces = jvmClassRaw.Interfaces.Select(i => GetInterface(jvmClassRaw, i)).ToArray(),
                 Fields = jvmClassRaw.Fields.Select(f => GetField(jvmClassRaw, f)).ToArray(),
@@ -104,25 +103,29 @@ namespace JVMParser
                 : throw new EndOfStreamException();
         }
         
-        private static JVMConstantPool[] GetConstantPools(Stream stream)
+        private static AJVMConstantPool[] GetConstantPools(Stream stream)
         {
             var constantPoolCount = stream.ReadUInt16();
-            var constantPools = new List<JVMConstantPool>();
+            var constantPools = new List<JVMConstantPoolRaw>();
             for (var x = 1; x < constantPoolCount; x++)
             {
                 var tag = (JVMConstantPoolTag)stream.ReadByteB();
-                var constantPool = GetJVMConstantPoolData(stream, tag, out var addExtra);
+                var constantPool = new JVMConstantPoolRaw(tag, GetJVMConstantPoolData(stream, tag, out var addExtra));
                 constantPools.Add(constantPool);
                 if (addExtra)
                 {
-                    constantPools.Add(new JVMValueConstantPool(JVMConstantPoolTag._DUMMY, null!));
+                    constantPools.Add(new JVMConstantPoolRaw(JVMConstantPoolTag._DUMMY, null!));
                     x++;
                 }
             }
-            return constantPools.ToArray();
+
+            var rawPools = constantPools.ToArray();
+            return rawPools
+                .Select(p => p.ResolveConstantPool(rawPools))
+                .ToArray();
         }
         
-        private static JVMConstantPool GetJVMConstantPoolData(Stream stream, JVMConstantPoolTag tag, out bool addExtra)
+        private static Dictionary<string, object> GetJVMConstantPoolData(Stream stream, JVMConstantPoolTag tag, out bool addExtra)
         {
             addExtra = false;
             var extraData = new Dictionary<string, object>();
@@ -130,47 +133,52 @@ namespace JVMParser
             {
                 case JVMConstantPoolTag.UTF8:
                     var length = stream.ReadUInt16();
-                    return new JVMValueConstantPool(tag, Encoding.UTF8.GetString(stream.ReadBytes(length)));
+                    extraData[Constants.ConstantPoolExtraPropertyName.VALUE] = Encoding.UTF8.GetString(stream.ReadBytes(length));
+                    return extraData;
                 case JVMConstantPoolTag.INTEGER:
-                    return new JVMValueConstantPool(tag, stream.ReadInt32());
+                    extraData[Constants.ConstantPoolExtraPropertyName.VALUE] = stream.ReadInt32();
+                    return extraData;
                 case JVMConstantPoolTag.FLOAT:
-                    return new JVMValueConstantPool(tag, stream.ReadFloat());
+                    extraData[Constants.ConstantPoolExtraPropertyName.VALUE] = stream.ReadFloat();
+                    return extraData;
                 case JVMConstantPoolTag.LONG:
                     addExtra = true;
-                    return new JVMValueConstantPool(tag, stream.ReadInt64());
+                    extraData[Constants.ConstantPoolExtraPropertyName.VALUE] = stream.ReadInt64();
+                    return extraData;
                 case JVMConstantPoolTag.DOUBLE:
                     addExtra = true;
-                    return new JVMValueConstantPool(tag, stream.ReadDouble());
+                    extraData[Constants.ConstantPoolExtraPropertyName.VALUE] = stream.ReadDouble();
+                    return extraData;
                 case JVMConstantPoolTag.CLASS:
                 case JVMConstantPoolTag.MODULE:
                 case JVMConstantPoolTag.PACKAGE:
-                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX] = stream.ReadUInt16();
-                    return new JVMConstantPool(tag, extraData);
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.UTF8
+                    return extraData;
                 case JVMConstantPoolTag.STRING:
-                    extraData[Constants.ConstantPoolExtraPropertyName.STRING_INDEX] = stream.ReadUInt16();
-                    return new JVMConstantPool(tag, extraData);
+                    extraData[Constants.ConstantPoolExtraPropertyName.STRING_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.UTF8
+                    return extraData;
                 case JVMConstantPoolTag.FIELD_REF:
                 case JVMConstantPoolTag.METHOD_REF:
                 case JVMConstantPoolTag.INTERFACE_METHOD_REF:
-                    extraData[Constants.ConstantPoolExtraPropertyName.CLASS_INDEX] = stream.ReadUInt16();
-                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX] = stream.ReadUInt16();
-                    return new JVMConstantPool(tag, extraData);
+                    extraData[Constants.ConstantPoolExtraPropertyName.CLASS_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.CLASS
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.NAME_AND_TYPE
+                    return extraData;
                 case JVMConstantPoolTag.NAME_AND_TYPE:
-                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX] = stream.ReadUInt16();
-                    extraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX] = stream.ReadUInt16();
-                    return new JVMConstantPool(tag, extraData);
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.UTF8
+                    extraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.UTF8
+                    return extraData;
                 case JVMConstantPoolTag.METHOD_HANDLE:
                     extraData[Constants.ConstantPoolExtraPropertyName.REFERENCE_KIND] = (JVMReferenceKind)stream.ReadByteB();
-                    extraData[Constants.ConstantPoolExtraPropertyName.REFERENCE_INDEX] = stream.ReadUInt16();
-                    return new JVMConstantPool(tag, extraData);
+                    extraData[Constants.ConstantPoolExtraPropertyName.REFERENCE_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.FIELD_REF/METHOD_REF/INTERFACE_METHOD_REF
+                    return extraData;
                 case JVMConstantPoolTag.METHOD_TYPE:
-                    extraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX] = stream.ReadUInt16();
-                    return new JVMConstantPool(tag, extraData);
+                    extraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.UTF8
+                    return extraData;
                 case JVMConstantPoolTag.DYNAMIC:
                 case JVMConstantPoolTag.INVOKE_DYNAMIC:
-                    extraData[Constants.ConstantPoolExtraPropertyName.BOOTSTRAP_METHOD_ATTRIBUTE_INDEX] = stream.ReadUInt16();
-                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX] = stream.ReadUInt16();
-                    return new JVMConstantPool(tag, extraData);
+                    extraData[Constants.ConstantPoolExtraPropertyName.BOOTSTRAP_METHOD_ATTRIBUTE_INDEX] = stream.ReadUInt16(); // -> BootstrapMethods Attribute table element index
+                    extraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX] = stream.ReadUInt16(); // -> JVMConstantPoolTag.NAME_AND_TYPE
+                    return extraData;
                 case JVMConstantPoolTag._DUMMY:
                 default:
                     throw new ArgumentOutOfRangeException(nameof(tag), tag, null);
@@ -228,7 +236,7 @@ namespace JVMParser
         #region Raw value processing
         private static string GetInterface(JVMClassRaw rawClass, ushort interfaceIndex)
         {
-            return rawClass.RecursivelyResolveConstantPool(interfaceIndex);
+            return rawClass.ResolveValuePoolValueByIndex<string>(interfaceIndex);
         }
 
         private static JVMField GetField(JVMClassRaw rawClass, JVMFieldRaw rawField)
@@ -236,8 +244,8 @@ namespace JVMParser
             var field = new JVMField
             {
                 AccessFlags = rawField.AccessFlags,
-                Name = rawClass.RecursivelyResolveConstantPool(rawField.NameIndex),
-                Descriptor = AJVMFieldDescriptor.ParseDescriptor(rawClass.RecursivelyResolveConstantPool(rawField.DescriptorIndex)),
+                Name = rawClass.ResolveValuePoolValueByIndex<string>(rawField.NameIndex),
+                Descriptor = AJVMFieldDescriptor.ParseFieldDescriptor(rawClass.ResolveValuePoolValueByIndex<string>(rawField.DescriptorIndex)),
                 Attributes = rawField.Attributes.Select(a => GetAttribute(rawClass, a)).ToArray(),
             };
             return field;
@@ -248,19 +256,11 @@ namespace JVMParser
             var method = new JVMMethod
             {
                 AccessFlags = rawMethod.AccessFlags,
-                Name = rawClass.RecursivelyResolveConstantPool(rawMethod.NameIndex),
-                Descriptor = new JVMMethodDescriptor(rawClass.RecursivelyResolveConstantPool(rawMethod.DescriptorIndex)),
+                Name = rawClass.ResolveValuePoolValueByIndex<string>(rawMethod.NameIndex),
+                Descriptor = new JVMMethodDescriptor(rawClass.ResolveValuePoolValueByIndex<string>(rawMethod.DescriptorIndex)),
                 Attributes = rawMethod.Attributes.Select(a => GetAttribute(rawClass, a)).ToArray(),
             };
             return method;
-        }
-
-        private static IEnumerable<object> TupleToArray(ITuple tuple)
-        {
-            for (var x = 0; x < tuple.Length; x++)
-            {
-                yield return tuple[x];
-            }
         }
 
         #region Attribute data methods
@@ -269,9 +269,9 @@ namespace JVMParser
             var pool = rawClass.ResolvePoolByIndex(poolIndex);
             return pool.Tag switch
             {
-                JVMConstantPoolTag.UTF8 or JVMConstantPoolTag.INTEGER or JVMConstantPoolTag.FLOAT or JVMConstantPoolTag.LONG or JVMConstantPoolTag.DOUBLE
+                JVMConstantPoolTag.UTF8 or JVMConstantPoolTag.INTEGER or JVMConstantPoolTag.FLOAT or JVMConstantPoolTag.LONG or JVMConstantPoolTag.DOUBLE or
+                    JVMConstantPoolTag.STRING
                     => rawClass.ResolveValuePoolValueByIndex(poolIndex),
-                JVMConstantPoolTag.STRING => rawClass.RecursivelyResolveConstantPool(poolIndex),
                 // JVMConstantPoolTag.CLASS => ,
                 // JVMConstantPoolTag.FIELD_REF => ,
                 // JVMConstantPoolTag.METHOD_REF => ,
@@ -283,7 +283,7 @@ namespace JVMParser
                 // JVMConstantPoolTag.INVOKE_DYNAMIC => ,
                 // JVMConstantPoolTag.MODULE => ,
                 // JVMConstantPoolTag.PACKAGE => ,
-                _ => throw new ArgumentOutOfRangeException(nameof(pool.Tag), pool.Tag, null)
+                _ => throw new ArgumentOutOfRangeException(nameof(pool.Tag), pool.Tag, null),
             };
         }
         
@@ -300,16 +300,16 @@ namespace JVMParser
                     JVMOpcode.ALOAD_1 or JVMOpcode.ALOAD_2 or JVMOpcode.ALOAD_3 or JVMOpcode.ASTORE_0 or JVMOpcode.ASTORE_1 or JVMOpcode.ASTORE_2 or JVMOpcode.ASTORE_3 or
                     JVMOpcode.DASTORE or JVMOpcode.DUP or JVMOpcode.ARETURN or JVMOpcode.RETURN or JVMOpcode.ATHROW
                         => Array.Empty<object>(),
-                JVMOpcode.INVOKE_SPECIAL or JVMOpcode.INVOKE_VIRTUAL => [rawClass.ResolveMethodRefPoolByIndex(codeStream.ReadUInt16())],
+                JVMOpcode.INVOKE_SPECIAL or JVMOpcode.INVOKE_VIRTUAL => [rawClass.ResolvePoolByIndex<JVMRefConstantPool>(codeStream.ReadUInt16())],
                 JVMOpcode.NEW_ARRAY => [(JVMArrayType)codeStream.ReadByteB()],
                 JVMOpcode.LOAD_CONST_WIDE => [rawClass.ResolveValuePoolValueByIndex(codeStream.ReadUInt16())],
-                JVMOpcode.PUT_FIELD or JVMOpcode.GET_STATIC => [rawClass.ResolveFieldRefPoolByIndex(codeStream.ReadUInt16())],
+                JVMOpcode.PUT_FIELD or JVMOpcode.GET_STATIC => [rawClass.ResolvePoolByIndex<JVMRefConstantPool>(codeStream.ReadUInt16())],
                 JVMOpcode.LDC => [ResolveValueFromPool(rawClass, codeStream.ReadByteB())],
                 JVMOpcode.LDC_W => [ResolveValueFromPool(rawClass, codeStream.ReadUInt16())],
-                JVMOpcode.NEW or JVMOpcode.ANEW_ARRAY => [rawClass.RecursivelyResolveConstantPool(codeStream.ReadUInt16())],
+                JVMOpcode.NEW or JVMOpcode.ANEW_ARRAY => [rawClass.ResolveValuePoolValueByIndex<string>(codeStream.ReadUInt16())],
                 JVMOpcode.BIPUSH => [codeStream.ReadByteB()],
                 JVMOpcode.SIPUSH => [codeStream.ReadUInt16()],
-                _ => throw new ArgumentOutOfRangeException(nameof(opcode), opcode, null)
+                _ => throw new ArgumentOutOfRangeException(nameof(opcode), opcode, null),
             };
 
             return new JVMInstruction
@@ -343,8 +343,11 @@ namespace JVMParser
                 StartPC = codeStream.ReadUInt16(),
                 EndPC = codeStream.ReadUInt16(),
                 HandlerPC = codeStream.ReadUInt16(),
-                CatchTypeName = rawClass.RecursivelyResolveConstantPool(codeStream.ReadUInt16()),
             };
+            var catchTypeIndex = codeStream.ReadUInt16();
+            exceptionTable.CatchTypeName = catchTypeIndex != 0
+                ? rawClass.ResolveValuePoolValueByIndex<string>(catchTypeIndex)
+                : null;
             return exceptionTable;
         }
 
@@ -381,9 +384,9 @@ namespace JVMParser
                 JVMVerificationType.TOP or JVMVerificationType.INT or JVMVerificationType.FLOAT
                     or JVMVerificationType.DOUBLE or JVMVerificationType.LONG or JVMVerificationType.NULL
                     or JVMVerificationType.UNINITIALIZED_THIS => new JVMVerificationTypeInfo(verificationType),
-                JVMVerificationType.OBJECT => new JVMObjectVerificationTypeInfo(rawClass.RecursivelyResolveConstantPool(stream.ReadUInt16())),
+                JVMVerificationType.OBJECT => new JVMObjectVerificationTypeInfo(rawClass.ResolveValuePoolValueByIndex<string>(stream.ReadUInt16())),
                 JVMVerificationType.UNINITIALIZED => new JVMUninitializedVerificationTypeInfo(stream.ReadUInt16()),
-                _ => throw new ArgumentOutOfRangeException()
+                _ => throw new ArgumentOutOfRangeException(nameof(verificationType), verificationType, null),
             };
         }
 
@@ -415,13 +418,13 @@ namespace JVMParser
             switch (attributeName)
             {
                 case Constants.AttributeName.SOURCE_FILE:
-                    return rawClass.RecursivelyResolveConstantPool(BinaryPrimitives.ReadUInt16BigEndian(data));
+                    return rawClass.ResolveValuePoolValueByIndex<string>(BinaryPrimitives.ReadUInt16BigEndian(data));
                 case Constants.AttributeName.CONSTANT_VALUE:
                     var poolIndex = BinaryPrimitives.ReadUInt16BigEndian(data);
                     var constantPool = rawClass.ResolvePoolByIndex(poolIndex);
                     return constantPool is JVMValueConstantPool valuePool
                         ? valuePool.Value
-                        : rawClass.RecursivelyResolveConstantPool(poolIndex);
+                        : rawClass.ResolveValuePoolValueByIndex<string>(poolIndex);
                 case Constants.AttributeName.CODE:
                     var codeStream = new MemoryStream(data);
                     var codeAttribute = new JVMCodeAttribute
@@ -449,7 +452,7 @@ namespace JVMParser
 
         private static JVMAttribute GetAttribute(JVMClassRaw rawClass, JVMAttributeRaw rawAttribute)
         {
-            var attributeName = rawClass.RecursivelyResolveConstantPool(rawAttribute.AttributeNameIndex);
+            var attributeName = rawClass.ResolveValuePoolValueByIndex<string>(rawAttribute.AttributeNameIndex);
             var attribute = new JVMAttribute
             {
                 Name = attributeName,

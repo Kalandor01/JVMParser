@@ -3,25 +3,25 @@ using System.Diagnostics.CodeAnalysis;
 namespace JVMParser
 {
     #region RawValue classes
-    public class JVMConstantPool
+    public class JVMConstantPoolRaw
     {
         public JVMConstantPoolTag Tag;
         public Dictionary<string, object> ExtraData;
 
-        public JVMConstantPool(JVMConstantPoolTag tag, Dictionary<string, object> extraData)
+        public JVMConstantPoolRaw(JVMConstantPoolTag tag, Dictionary<string, object> extraData)
         {
             Tag = tag;
             ExtraData = extraData;
         }
 
-        public virtual bool TryResolvePoolByIndexProperty(JVMClassRaw jvmClassRaw, string indexPropertyName, [NotNullWhen(true)] out JVMConstantPool? pool)
+        public bool TryResolvePoolByIndexProperty(JVMConstantPoolRaw[] rawPools, string indexPropertyName, [NotNullWhen(true)] out JVMConstantPoolRaw? pool)
         {
             if (
                 ExtraData.TryGetValue(indexPropertyName, out var indexValueObj) &&
                 indexValueObj is ushort indexValue &&
-                jvmClassRaw.ConstantPools.Length >= indexValue)
+                rawPools.Length >= indexValue)
             {
-                pool = jvmClassRaw.ConstantPools[indexValue - 1];
+                pool = rawPools[indexValue - 1];
                 return true;
             }
 
@@ -29,43 +29,82 @@ namespace JVMParser
             return false;
         }
         
-        public virtual JVMConstantPool ResolvePoolByIndexProperty(JVMClassRaw jvmClassRaw, string indexPropertyName)
+        public JVMConstantPoolRaw ResolvePoolByIndexProperty(JVMConstantPoolRaw[] rawPools, string indexPropertyName)
         {
-            return TryResolvePoolByIndexProperty(jvmClassRaw, indexPropertyName, out var pool)
+            return TryResolvePoolByIndexProperty(rawPools, indexPropertyName, out var pool)
                 ? pool
                 : throw new KeyNotFoundException();
         }
-
-        public override string? ToString()
+        
+        public object ResolveValuePoolValueByIndexProperty(JVMConstantPoolRaw[] rawPools, string indexPropertyName)
         {
-            return $"{Tag}: {{ {string.Join(", ", ExtraData.Select(kv => $"{kv.Key} = {kv.Value}") ?? [])} }}";
+            return ResolvePoolByIndexProperty(rawPools, indexPropertyName).ExtraData[Constants.ConstantPoolExtraPropertyName.VALUE];
         }
-    }
-    
-    public class JVMValueConstantPool : JVMConstantPool
-    {
-        public object Value;
-
-        public JVMValueConstantPool(JVMConstantPoolTag tag, object value)
-            : base(tag, null!)
+        
+        public T ResolveValuePoolValueByIndexProperty<T>(JVMConstantPoolRaw[] rawPools, string indexPropertyName)
         {
-            Value = value;
-        }
-
-        public override bool TryResolvePoolByIndexProperty(JVMClassRaw jvmClassRaw, string indexPropertyName, [NotNullWhen(true)] out JVMConstantPool? pool)
-        {
-            pool = null;
-            return false;
-        }
-
-        public override JVMConstantPool ResolvePoolByIndexProperty(JVMClassRaw jvmClassRaw, string indexPropertyName)
-        {
-            throw new KeyNotFoundException();
+            return (T)ResolveValuePoolValueByIndexProperty(rawPools, indexPropertyName);
         }
 
         public override string? ToString()
         {
-            return $"{Tag}: {Value}";
+            return Tag == JVMConstantPoolTag._DUMMY
+                ? "[DUMMY CONSTANT POOL]"
+                : $"{Tag}: {{ {string.Join(", ", ExtraData.Select(kv => $"{kv.Key} = {kv.Value}") ?? [])} }}";
+        }
+        
+        public AJVMConstantPool ResolveConstantPool(JVMConstantPoolRaw[] rawPools)
+        {
+            return Tag switch
+            {
+                JVMConstantPoolTag.UTF8 or JVMConstantPoolTag.INTEGER or JVMConstantPoolTag.FLOAT
+                    or JVMConstantPoolTag.LONG or JVMConstantPoolTag.DOUBLE
+                    => new JVMValueConstantPool(Tag, ExtraData["value"]),
+                JVMConstantPoolTag.CLASS or JVMConstantPoolTag.MODULE or JVMConstantPoolTag.PACKAGE => new JVMValueConstantPool(
+                        Tag,
+                        ResolveConstantPoolValueByProperty<string>(rawPools, Constants.ConstantPoolExtraPropertyName.NAME_INDEX)
+                    ),
+                JVMConstantPoolTag.STRING => new JVMValueConstantPool(
+                        Tag,
+                        ResolveConstantPoolValueByProperty<string>(rawPools, Constants.ConstantPoolExtraPropertyName.STRING_INDEX)
+                    ),
+                JVMConstantPoolTag.FIELD_REF or JVMConstantPoolTag.METHOD_REF or JVMConstantPoolTag.INTERFACE_METHOD_REF => new JVMRefConstantPool(
+                        Tag,
+                        ResolveConstantPoolValueByProperty<string>(rawPools, Constants.ConstantPoolExtraPropertyName.CLASS_INDEX),
+                        (JVMNameTypeConstantPool)ResolveConstantPoolByProperty(rawPools, Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX)
+                    ),
+                JVMConstantPoolTag.NAME_AND_TYPE => new JVMNameTypeConstantPool(
+                        Tag,
+                        ResolveConstantPoolValueByProperty<string>(rawPools, Constants.ConstantPoolExtraPropertyName.NAME_INDEX),
+                        ResolveConstantPoolValueByProperty<string>(rawPools, Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX)
+                    ),
+                JVMConstantPoolTag.METHOD_HANDLE => new JVMHandleConstantPool(
+                        Tag,
+                        (JVMReferenceKind)ExtraData[Constants.ConstantPoolExtraPropertyName.REFERENCE_KIND],
+                        (JVMRefConstantPool)ResolveConstantPoolByProperty(rawPools, Constants.ConstantPoolExtraPropertyName.REFERENCE_INDEX)
+                    ),
+                JVMConstantPoolTag.METHOD_TYPE => new JVMValueConstantPool(
+                        Tag,
+                        ResolveConstantPoolValueByProperty<string>(rawPools, Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX)
+                    ),
+                JVMConstantPoolTag.DYNAMIC or JVMConstantPoolTag.INVOKE_DYNAMIC => new JVMDynamicConstantPool(
+                        Tag,
+                        (ushort)ExtraData[Constants.ConstantPoolExtraPropertyName.BOOTSTRAP_METHOD_ATTRIBUTE_INDEX],
+                        (JVMNameTypeConstantPool)ResolveConstantPoolByProperty(rawPools, Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX)
+                    ),
+                JVMConstantPoolTag._DUMMY => new JVMDummyConstantPool(),
+                _ => throw new ArgumentOutOfRangeException(nameof(Tag), Tag, null),
+            };
+        }
+
+        public AJVMConstantPool ResolveConstantPoolByProperty(JVMConstantPoolRaw[] rawPools, string indexPropertyName)
+        {
+            return ResolvePoolByIndexProperty(rawPools, indexPropertyName).ResolveConstantPool(rawPools);
+        }
+
+        public T ResolveConstantPoolValueByProperty<T>(JVMConstantPoolRaw[] rawPools, string indexPropertyName)
+        {
+            return (T)((JVMValueConstantPool)ResolveConstantPoolByProperty(rawPools, indexPropertyName)).Value;
         }
     }
 
@@ -90,34 +129,6 @@ namespace JVMParser
         public ushort AttributeNameIndex;
         public byte[] Data;
     }
-
-    public class JVMFieldRef
-    {
-        public string ClassName;
-        public string TypeName;
-        public AJVMFieldDescriptor Descriptor;
-        
-        public JVMFieldRef(string className, string typeName, AJVMFieldDescriptor descriptor)
-        {
-            ClassName = className;
-            TypeName = typeName;
-            Descriptor = descriptor;
-        }
-    }
-
-    public class JVMMethodRef
-    {
-        public string ClassName;
-        public string TypeName;
-        public JVMMethodDescriptor Descriptor;
-        
-        public JVMMethodRef(string className, string typeName, JVMMethodDescriptor descriptor)
-        {
-            ClassName = className;
-            TypeName = typeName;
-            Descriptor = descriptor;
-        }
-    }
     
     public class JVMClassRaw
     {
@@ -127,7 +138,7 @@ namespace JVMParser
         /// <summary>
         /// Indexed from 1.
         /// </summary>
-        public JVMConstantPool[] ConstantPools;
+        public AJVMConstantPool[] ConstantPools;
         public JVMAccessFlag[] AccessFlags;
         public ushort ThisClassIndex;
         public ushort SuperClassIndex;
@@ -136,126 +147,183 @@ namespace JVMParser
         public JVMMethodRaw[] Methods;
         public JVMAttributeRaw[] Attributes;
         
-        public bool TryResolvePoolByIndex(ushort propertyIndex, [NotNullWhen(true)] out JVMConstantPool? pool)
-        {
-            if (ConstantPools.Length >= propertyIndex)
-            {
-                pool = ConstantPools[propertyIndex - 1];
-                return true;
-            }
-
-            pool = null;
-            return false;
-        }
-        
-        public JVMConstantPool ResolvePoolByIndex(ushort poolIndex)
+        public AJVMConstantPool ResolvePoolByIndex(ushort poolIndex)
         {
             return ConstantPools[poolIndex - 1];
         }
         
-        private (string className, string typeName, IJVMDescriptor typeDescriptor) ResolveRefPool(JVMConstantPool refPool)
+        public T ResolvePoolByIndex<T>(ushort poolIndex)
+            where T : AJVMConstantPool
         {
-            var isField = refPool.Tag == JVMConstantPoolTag.FIELD_REF;
-            var natPool = ResolvePoolByIndex((ushort)refPool.ExtraData[Constants.ConstantPoolExtraPropertyName.NAME_AND_TYPE_INDEX]);
-            
-            var className = RecursivelyResolveConstantPool((ushort)refPool.ExtraData[Constants.ConstantPoolExtraPropertyName.CLASS_INDEX]);
-            var name = RecursivelyResolveConstantPool((ushort)natPool.ExtraData[Constants.ConstantPoolExtraPropertyName.NAME_INDEX]);
-            var descriptorStr = RecursivelyResolveConstantPool((ushort)natPool.ExtraData[Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX]);
-            IJVMDescriptor descriptor = isField
-                ? AJVMFieldDescriptor.ParseDescriptor(descriptorStr)
-                : new JVMMethodDescriptor(descriptorStr);
-            return (className, name, descriptor);
-        }
-        
-        public JVMFieldRef ResolveFieldRefPoolByIndex(ushort refIndex)
-        {
-            var refPool = ResolvePoolByIndex(refIndex);
-            if (refPool.Tag != JVMConstantPoolTag.FIELD_REF)
-            {
-                throw new ArgumentException("Constant pool at index is not a field ref: " + refIndex);
-            }
-
-            var res = ResolveRefPool(refPool);
-            return new JVMFieldRef(res.className, res.typeName, (AJVMFieldDescriptor)res.typeDescriptor);
-        }
-        
-        public JVMMethodRef ResolveMethodRefPoolByIndex(ushort refIndex)
-        {
-            var refPool = ResolvePoolByIndex(refIndex);
-            if (refPool.Tag == JVMConstantPoolTag.FIELD_REF)
-            {
-                throw new ArgumentException("Constant pool at index is not a method ref: " + refIndex);
-            }
-
-            var res = ResolveRefPool(refPool);
-            return new JVMMethodRef(res.className, res.typeName, (JVMMethodDescriptor)res.typeDescriptor);
+            return (T)ResolvePoolByIndex(poolIndex);
         }
         
         public object ResolveValuePoolValueByIndex(ushort poolIndex)
         {
-            return ((JVMValueConstantPool)ConstantPools[poolIndex - 1]).Value;
+            return ResolvePoolByIndex<JVMValueConstantPool>(poolIndex).Value;
         }
         
         public T ResolveValuePoolValueByIndex<T>(ushort poolIndex)
         {
-            return (T)ResolveValuePoolValueByIndex(poolIndex);
-        }
-
-        public string RecursivelyResolveConstantPool(ushort index)
-        {
-            var resolvedPool = ResolvePoolByIndex(index);
-            while (true)
-            {
-                if (resolvedPool is JVMValueConstantPool valuePool)
-                {
-                    return valuePool.Value.ToString();
-                }
-
-                switch (resolvedPool.Tag)
-                {
-                    case JVMConstantPoolTag.CLASS:
-                    case JVMConstantPoolTag.MODULE:
-                    case JVMConstantPoolTag.PACKAGE:
-                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.NAME_INDEX);
-                        continue;
-                    case JVMConstantPoolTag.STRING:
-                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.STRING_INDEX);
-                        continue;
-                    case JVMConstantPoolTag.METHOD_TYPE:
-                        resolvedPool = resolvedPool.ResolvePoolByIndexProperty(this, Constants.ConstantPoolExtraPropertyName.DESCRIPTOR_INDEX);
-                        continue;
-                    case JVMConstantPoolTag.FIELD_REF:
-                    case JVMConstantPoolTag.METHOD_REF:
-                    case JVMConstantPoolTag.INTERFACE_METHOD_REF:
-                    case JVMConstantPoolTag.NAME_AND_TYPE:
-                    case JVMConstantPoolTag.METHOD_HANDLE:
-                    case JVMConstantPoolTag.DYNAMIC:
-                    case JVMConstantPoolTag.INVOKE_DYNAMIC:
-                    case JVMConstantPoolTag._DUMMY:
-                    case JVMConstantPoolTag.UTF8:
-                    case JVMConstantPoolTag.INTEGER:
-                    case JVMConstantPoolTag.FLOAT:
-                    case JVMConstantPoolTag.LONG:
-                    case JVMConstantPoolTag.DOUBLE:
-                    default:
-                        return $"[UNRESOLVABLE] {resolvedPool}";
-                }
-            }
+            return ResolvePoolByIndex<JVMValueConstantPool>(poolIndex).ValueAs<T>();
         }
     }
     #endregion
 
     #region Processed value classes
+    #region Constant pools
+    public abstract class AJVMConstantPool
+    {
+        public readonly JVMConstantPoolTag Tag;
+
+        protected AJVMConstantPool(JVMConstantPoolTag tag)
+        {
+            Tag = tag;
+        }
+
+        public override string? ToString()
+        {
+            return Tag.ToString();
+        }
+    }
+    
+    public class JVMDummyConstantPool : AJVMConstantPool
+    {
+        public JVMDummyConstantPool() : base(JVMConstantPoolTag._DUMMY) { }
+
+        public override string? ToString()
+        {
+            return $"[DUMMY CONSTANT POOL]";
+        }
+    }
+    
+    public class JVMValueConstantPool : AJVMConstantPool
+    {
+        public readonly object Value;
+
+        public JVMValueConstantPool(JVMConstantPoolTag tag, object value)
+            : base(tag)
+        {
+            Value = value;
+        }
+
+        public T ValueAs<T>()
+        {
+            return (T)Value;
+        }
+
+        public override string? ToString()
+        {
+            return $"{Tag}: {Value}";
+        }
+    }
+    
+    public class JVMNameTypeConstantPool : AJVMConstantPool
+    {
+        public readonly string Name;
+        public readonly IJVMDescriptor Descriptor;
+    
+        public JVMNameTypeConstantPool(JVMConstantPoolTag tag, string name, string descriptor)
+            : base(tag)
+        {
+            Name = name;
+            Descriptor = IJVMDescriptor.ParseDescriptor(descriptor);
+        }
+    
+        public string? ToString(bool includeTag)
+        {
+            return $"{(includeTag ? $"{Tag}: " : "")}{Descriptor.ToString(Name)}";
+        }
+    
+        public override string? ToString()
+        {
+            return ToString(true);
+        }
+    }
+    
+    public class JVMRefConstantPool : AJVMConstantPool
+    {
+        public readonly string ClassName;
+        public readonly JVMNameTypeConstantPool NameAndType;
+    
+        public JVMRefConstantPool(JVMConstantPoolTag tag, string className, JVMNameTypeConstantPool nameAndType)
+            : base(tag)
+        {
+            ClassName = className;
+            NameAndType = nameAndType;
+        }
+    
+        public string? ToString(bool includeTag)
+        {
+            return $"{(includeTag ? $"{Tag}: " : "")}{ClassName} -> {NameAndType.ToString(false)}";
+        }
+    
+        public override string? ToString()
+        {
+            return ToString(true);
+        }
+    }
+    
+    public class JVMHandleConstantPool : AJVMConstantPool
+    {
+        public readonly JVMReferenceKind Kind;
+        public readonly JVMRefConstantPool Reference;
+    
+        public JVMHandleConstantPool(JVMConstantPoolTag tag, JVMReferenceKind referenceKind, JVMRefConstantPool reference)
+            : base(tag)
+        {
+            Kind = referenceKind;
+            Reference = reference;
+        }
+    
+        public override string? ToString()
+        {
+            return $"{Tag}: {Kind}: {Reference.ToString(false)}";
+        }
+    }
+    
+    public class JVMDynamicConstantPool : AJVMConstantPool
+    {
+        public readonly ushort BootstrapMethodAttributeIndex;
+        public readonly JVMNameTypeConstantPool NameAndType;
+    
+        public JVMDynamicConstantPool(JVMConstantPoolTag tag, ushort bootstrapIndex, JVMNameTypeConstantPool nameAndType)
+            : base(tag)
+        {
+            BootstrapMethodAttributeIndex = bootstrapIndex;
+            NameAndType = nameAndType;
+        }
+    
+        public override string? ToString()
+        {
+            return $"{Tag}: ({BootstrapMethodAttributeIndex}), {NameAndType.ToString(false)}";
+        }
+    }
+    #endregion
+    
     #region Descriptors
     public interface IJVMDescriptor
     {
         string ToDescriptorString();
         string ToString(string name);
+        
+        public static IJVMDescriptor ParseDescriptor(string descriptorString)
+        {
+            if (descriptorString.StartsWith('('))
+            {
+                return new JVMMethodDescriptor(descriptorString);
+            }
+            
+            var fieldDescriptor = AJVMFieldDescriptor.ParseFieldDescriptor(ref descriptorString);
+            return descriptorString.Length == 0
+                ? fieldDescriptor
+                : throw new ArgumentException($"Remaining descriptor data after parsing: \"{descriptorString}\"");
+        }
     }
     
     public abstract class AJVMFieldDescriptor : IJVMDescriptor
     {
-        public static AJVMFieldDescriptor ParseDescriptor(ref string descriptorString)
+        public static AJVMFieldDescriptor ParseFieldDescriptor(ref string descriptorString)
         {
             if (descriptorString.Length < 1)
             {
@@ -283,7 +351,7 @@ namespace JVMParser
                 case 'Z':
                     return new JVMFieldDescriptor(JVMFieldType.BOOL);
                 case '[':
-                    return new JVMArrayDescriptor(ParseDescriptor(ref descriptorString));
+                    return new JVMArrayDescriptor(ParseFieldDescriptor(ref descriptorString));
                 case 'L':
                     var classEndIndex = descriptorString.IndexOf(';');
                     if (classEndIndex == -1)
@@ -299,9 +367,9 @@ namespace JVMParser
             }
         }
 
-        public static AJVMFieldDescriptor ParseDescriptor(string descriptorString)
+        public static AJVMFieldDescriptor ParseFieldDescriptor(string descriptorString)
         {
-            var res = ParseDescriptor(ref descriptorString);
+            var res = ParseFieldDescriptor(ref descriptorString);
             return descriptorString.Length == 0
                 ? res
                 : throw new ArgumentException($"Remaining descriptor data after parsing: \"{descriptorString}\"");
@@ -417,14 +485,14 @@ namespace JVMParser
 
             var returnDescriptor = paramsAndReturn[1];
             ReturnType = returnDescriptor != "V"
-                ? AJVMFieldDescriptor.ParseDescriptor(returnDescriptor)
+                ? AJVMFieldDescriptor.ParseFieldDescriptor(returnDescriptor)
                 : null;
             
             var paramDescriptors = paramsAndReturn[0];
             var parameters = new List<AJVMFieldDescriptor>();
             while (paramDescriptors.Length != 0)
             {
-                parameters.Add(AJVMFieldDescriptor.ParseDescriptor(ref paramDescriptors));
+                parameters.Add(AJVMFieldDescriptor.ParseFieldDescriptor(ref paramDescriptors));
             }
             Parameters = parameters.ToArray();
         }
@@ -467,7 +535,7 @@ namespace JVMParser
 
         public override string? ToString()
         {
-            return OriginalBytes.ToString();
+            return Instructions.ToString();
         }
     }
     
@@ -476,11 +544,11 @@ namespace JVMParser
         public ushort StartPC;
         public ushort EndPC;
         public ushort HandlerPC;
-        public string CatchTypeName;
+        public string? CatchTypeName;
 
         public override string? ToString()
         {
-            return $"{CatchTypeName}: {StartPC}-{EndPC} -> {HandlerPC}";
+            return $"{CatchTypeName ?? "Exception"}: {StartPC}-{EndPC} -> {HandlerPC}";
         }
     }
     
