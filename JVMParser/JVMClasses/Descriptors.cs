@@ -4,7 +4,7 @@ public class Descriptors
 {
     public interface IJVMDescriptor
     {
-        string ToDescriptorString();
+        string DescriptorString { get; }
         string ToString(string name);
         
         public static IJVMDescriptor ParseDescriptor(string descriptorString)
@@ -75,7 +75,7 @@ public class Descriptors
                 : throw new ArgumentException($"Remaining descriptor data after parsing: \"{descriptorString}\"");
         }
 
-        public abstract string ToDescriptorString();
+        public abstract string DescriptorString { get; }
         public abstract string ToString(string name);
     }
     
@@ -88,21 +88,18 @@ public class Descriptors
             FieldType = fieldType;
         }
 
-        public override string ToDescriptorString()
+        public override string DescriptorString => FieldType switch
         {
-            return FieldType switch
-            {
-                JVMFieldType.BYTE => "B",
-                JVMFieldType.CHAR => "C",
-                JVMFieldType.DOUBLE => "D",
-                JVMFieldType.FLOAT => "F",
-                JVMFieldType.INT => "I",
-                JVMFieldType.LONG => "J",
-                JVMFieldType.SHORT => "S",
-                JVMFieldType.BOOL => "Z",
-                _ => throw new ArgumentOutOfRangeException()
-            };
-        }
+            JVMFieldType.BYTE => "B",
+            JVMFieldType.CHAR => "C",
+            JVMFieldType.DOUBLE => "D",
+            JVMFieldType.FLOAT => "F",
+            JVMFieldType.INT => "I",
+            JVMFieldType.LONG => "J",
+            JVMFieldType.SHORT => "S",
+            JVMFieldType.BOOL => "Z",
+            _ => throw new ArgumentOutOfRangeException(),
+        };
 
         public override string ToString(string fieldName)
         {
@@ -124,10 +121,7 @@ public class Descriptors
             ClassName = className;
         }
 
-        public override string ToDescriptorString()
-        {
-            return $"L{ClassName};";
-        }
+        public override string DescriptorString => $"L{ClassName};";
 
         public override string ToString(string fieldName)
         {
@@ -149,10 +143,7 @@ public class Descriptors
             Field = field;
         }
 
-        public override string ToDescriptorString()
-        {
-            return '[' + Field.ToDescriptorString();
-        }
+        public override string DescriptorString => '[' + Field.DescriptorString;
 
         public override string ToString(string fieldName)
         {
@@ -197,11 +188,10 @@ public class Descriptors
             Parameters = parameters.ToArray();
         }
 
-        public string ToDescriptorString()
-        {
-            var parameters = string.Join("", Parameters.Select(p => p.ToDescriptorString()));
-            return $"({parameters}){(ReturnType is not null ? ReturnType.ToDescriptorString() : "V")}";
-        }
+        public string DescriptorString => $"({string.Join(
+                "",
+                Parameters.Select(p => p.DescriptorString)
+            )}){(ReturnType is not null ? ReturnType.DescriptorString : "V")}";
 
         public string ToString(string methodName = "Method")
         {

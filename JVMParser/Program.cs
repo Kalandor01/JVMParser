@@ -10,10 +10,18 @@
                 "ATest",
                 "ITest",
             };
+            const string executingClass = "Test";
 
             var parsedClasses = testFileNames
-                .Select(testFileName => (testFileName, ParseJVMBytecode(testFileName)))
+                .Select(testFileName => (fileName: testFileName, jvmClass: ParseJVMBytecode(testFileName)))
                 .ToList();
+
+            var testClass = parsedClasses.First(c => c.fileName == executingClass).jvmClass!;
+            var otherClasses = parsedClasses
+                .Where(c => c.fileName != executingClass)
+                .Select(c => c.jvmClass!)
+                .ToArray();
+            JVMInterpreter.ExecuteMain(testClass, otherClasses);
         }
 
         private static JVMClass? ParseJVMBytecode(string fileName)
@@ -22,10 +30,10 @@
             const string javaClassExtension = ".class";
             
             var testFilePath = Path.Join(testFolderPath, fileName + javaClassExtension);
-            var jvmClassRaw = JVMParser.Parse(testFilePath);
+            var jvmRawClass = JVMRawParser.Parse(testFilePath);
 
-            return jvmClassRaw is not null
-                ? JVMParser.RevolveJVMClass(jvmClassRaw)
+            return jvmRawClass is not null
+                ? JVMParser.RevolveJVMClass(jvmRawClass)
                 : null;
         }
     }

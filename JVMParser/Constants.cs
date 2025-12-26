@@ -2,6 +2,10 @@ namespace JVMParser;
 
 internal class Constants
 {
+    public const string INIT_METHOD_NAME = "<init>";
+    public const string MAIN_METHOD_NAME = "main";
+    public const string MAIN_DESCRIPTOR_STRING = "([Ljava/lang/String;)V";
+    
     public class ConstantPoolExtraPropertyName
     {
         public const string VALUE = "value";

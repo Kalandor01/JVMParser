@@ -1,3 +1,5 @@
+using JVMParser.JVMClasses;
+
 namespace JVMParser;
 
 public enum JVMConstantPoolTag : byte
@@ -286,7 +288,7 @@ public enum JVMOpcode : byte
     DCONST_1 = 0xF,
     /// <summary>
     /// Push byte.<br/>
-    /// args: -<br/>
+    /// args: byte<br/>
     /// &lt;- -<br/>
     /// -&gt; arg1
     /// </summary>
@@ -467,30 +469,30 @@ public enum JVMOpcode : byte
     INVOKE_SPECIAL = 0xB7,
     /// <summary>
     /// Create new object.<br/>
-    /// args: -<br/>
+    /// args: typeName<br/>
     /// &lt;- -<br/>
-    /// -&gt; -
+    /// -&gt; reference
     /// </summary>
-    NEW = 0xBB, // TODO:                                 CONTINUE DOCUMENTING HERE!!!
+    NEW = 0xBB,
     /// <summary>
     /// Create new array.<br/>
-    /// args: -<br/>
-    /// &lt;- -<br/>
-    /// -&gt; -
+    /// args: <see cref="JVMArrayType"/><br/>
+    /// &lt;- int<br/>
+    /// -&gt; reference
     /// </summary>
     NEW_ARRAY = 0xBC,
     /// <summary>
     /// Create new array of reference.<br/>
-    /// args: -<br/>
-    /// &lt;- -<br/>
-    /// -&gt; -
+    /// args: typeName<br/>
+    /// &lt;- int<br/>
+    /// -&gt; reference
     /// </summary>
     ANEW_ARRAY = 0xBD,
     /// <summary>
     /// Throw exception or error.<br/>
     /// args: -<br/>
-    /// &lt;- -<br/>
-    /// -&gt; -
+    /// &lt;- reference<br/>
+    /// -&gt; [CLEAR], reference
     /// </summary>
     ATHROW = 0xBF,
 }
