@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Text;
+using JVMParser.JVMClasses;
 
 namespace JVMParser
 {
@@ -245,7 +246,7 @@ namespace JVMParser
             {
                 AccessFlags = rawField.AccessFlags,
                 Name = rawClass.ResolveValuePoolValueByIndex<string>(rawField.NameIndex),
-                Descriptor = AJVMFieldDescriptor.ParseFieldDescriptor(rawClass.ResolveValuePoolValueByIndex<string>(rawField.DescriptorIndex)),
+                Descriptor = Descriptors.AJVMFieldDescriptor.ParseFieldDescriptor(rawClass.ResolveValuePoolValueByIndex<string>(rawField.DescriptorIndex)),
                 Attributes = rawField.Attributes.Select(a => GetAttribute(rawClass, a)).ToArray(),
             };
             return field;
@@ -257,7 +258,7 @@ namespace JVMParser
             {
                 AccessFlags = rawMethod.AccessFlags,
                 Name = rawClass.ResolveValuePoolValueByIndex<string>(rawMethod.NameIndex),
-                Descriptor = new JVMMethodDescriptor(rawClass.ResolveValuePoolValueByIndex<string>(rawMethod.DescriptorIndex)),
+                Descriptor = new Descriptors.JVMMethodDescriptor(rawClass.ResolveValuePoolValueByIndex<string>(rawMethod.DescriptorIndex)),
                 Attributes = rawMethod.Attributes.Select(a => GetAttribute(rawClass, a)).ToArray(),
             };
             return method;
