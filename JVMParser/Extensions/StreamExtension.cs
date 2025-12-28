@@ -30,6 +30,11 @@ namespace JVMParser.Extensions
                 return BinaryPrimitives.ReadUInt16BigEndian(stream.ReadBytes(2));
             }
 
+            public short ReadInt16()
+            {
+                return BinaryPrimitives.ReadInt16BigEndian(stream.ReadBytes(2));
+            }
+
             public uint ReadUInt32()
             {
                 return BinaryPrimitives.ReadUInt32BigEndian(stream.ReadBytes(4));

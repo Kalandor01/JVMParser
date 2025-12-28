@@ -5,6 +5,36 @@ internal class Constants
     public const string INIT_METHOD_NAME = "<init>";
     public const string MAIN_METHOD_NAME = "main";
     public const string MAIN_DESCRIPTOR_STRING = "([Ljava/lang/String;)V";
+    public const string OBJECT_TYPE_NAME = "java/lang/Object";
+    
+    public class MockClass
+    {
+        public const string MAGIC_HEX_STRING = "CA-FE-BA-BE";
+        public const ushort MAJOR_VERSION = 65;
+        public const ushort MINOR_VERSION = 0;
+        
+        public class System
+        {
+            public const string CLASS_NAME = "java/lang/System";
+            
+            public class OutField
+            {
+                public const string NAME = "out";
+                public const string DESCRIPTOR = "Ljava/io/PrintStream;";
+            }
+        }
+        
+        public class PrintStream
+        {
+            public const string CLASS_NAME = "java/io/PrintStream";
+            
+            public class PrintLineMethod
+            {
+                public const string NAME = "println";
+                public const string DESCRIPTOR = "(Ljava/lang/String;)V";
+            }
+        }
+    }
     
     public class ConstantPoolExtraPropertyName
     {
@@ -21,6 +51,8 @@ internal class Constants
     
     public class AttributeName
     {
+        public const string _EXTERNAL_METHOD_MARKER = "[EXTERNAL METHOD]";
+        
         public const string CONSTANT_VALUE = "ConstantValue";
         public const string CODE = "Code";
         public const string STACK_MAP_TABLE = "StackMapTable";
@@ -42,7 +74,7 @@ internal class Constants
         public const string RuntimeVisibleTypeAnnotations = "RuntimeVisibleTypeAnnotations";
         public const string RuntimeInvisibleTypeAnnotations = "RuntimeInvisibleTypeAnnotations";
         public const string AnnotationDefault = "AnnotationDefault";
-        public const string BootstrapMethods = "BootstrapMethods";
+        public const string BOOTSTRAP_METHODS = "BootstrapMethods";
         public const string MethodParameters = "MethodParameters";
         public const string Module = "Module";
         public const string ModulePackages = "ModulePackages";

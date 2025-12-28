@@ -16,6 +16,13 @@ public class JVMRawParser
             };
             return attribute;
         }
+
+        public static JVMAccessFlag[] ParseAccessFlags(ushort flagsInt)
+        {
+            return Enum.GetValues<JVMAccessFlag>()
+                .Where(f => ((ushort)f & flagsInt) != 0)
+                .ToArray();
+        }
     
         public static JVMClassRaw? Parse(string filePath)
         {
@@ -133,9 +140,7 @@ public class JVMRawParser
         private static JVMAccessFlag[] GetAccessFlags(Stream stream)
         {
             var accessFlags = stream.ReadUInt16();
-            return Enum.GetValues<JVMAccessFlag>()
-                .Where(f => ((ushort)f & accessFlags) != 0)
-                .ToArray();
+            return ParseAccessFlags(accessFlags);
         }
 
         private static ushort GetRawInterface(Stream stream)

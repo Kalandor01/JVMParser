@@ -14,5 +14,10 @@ namespace JVMParser.Extensions
                 stack.Push(item);
             }
         }
+
+        public static TI Pop<TI>(this Stack<object?> stack)
+        {
+            return (TI)stack.Pop()!;
+        }
     }
 }

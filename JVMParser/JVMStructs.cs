@@ -143,6 +143,30 @@ namespace JVMParser
             Verifications = verifications;
         }
     }
+
+    public class JVMBootstrapMethod
+    {
+        public JVMHandleConstantPool BootstrapMethodRef;
+        public AJVMConstantPool[] BootstrapArguments;
+
+        public override string ToString()
+        {
+            return BootstrapMethodRef.ToString();
+        }
+    }
+
+    public class JVMInnerClass
+    {
+        public string InnerClassInfo;
+        public string? OuterClassInfo;
+        public string? InnerName;
+        public JVMAccessFlag[] AccessFlags;
+
+        public override string ToString()
+        {
+            return $"{(AccessFlags.Length != 0 ? $"{string.Join(" ", AccessFlags).ToLower()} " : "")} {InnerClassInfo}";
+        }
+    }
     #endregion
     
     public class JVMAttribute

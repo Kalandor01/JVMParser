@@ -1,6 +1,4 @@
 using System.Buffers.Binary;
-using System.Numerics;
-using System.Text;
 using JVMParser.Extensions;
 using JVMParser.JVMClasses;
 
@@ -26,24 +24,6 @@ namespace JVMParser
                 Methods = jvmClassRaw.Methods.Select(m => GetMethod(jvmClassRaw, m)).ToArray(),
                 Attributes = jvmClassRaw.Attributes.Select(a => GetAttribute(jvmClassRaw, a)).ToArray(),
             };
-
-            var classAttributes = jvmClass.Attributes;
-            var fieldAttributes = jvmClass.Fields.SelectMany(f => f.Attributes).ToList();
-            var methodAttributes = jvmClass.Methods.SelectMany(m => m.Attributes).ToList();
-
-            var attributes = classAttributes
-                .Concat(fieldAttributes)
-                .Concat(methodAttributes)
-                .ToList();
-
-            attributes = attributes
-                .Concat(attributes
-                    .Where(a => a.Name == Constants.AttributeName.CODE)
-                    .Select(a => (JVMCodeAttribute)a.Data)
-                    .SelectMany(c => c.Attributes)
-                )
-                .ToList();
-            
             return jvmClass;
         }
         #endregion
@@ -112,19 +92,21 @@ namespace JVMParser
             {
                 JVMOpcode.NOP or JVMOpcode.ACONST_NULL or JVMOpcode.ICONST_NEG_1 or JVMOpcode.ICONST_0 or JVMOpcode.ICONST_1 or JVMOpcode.ICONST_2 or JVMOpcode.ICONST_3 or
                     JVMOpcode.ICONST_4 or JVMOpcode.ICONST_5 or JVMOpcode.LCONST_0 or JVMOpcode.LCONST_1 or JVMOpcode.FCONST_0 or JVMOpcode.FCONST_1 or JVMOpcode.FCONST_2 or
-                    JVMOpcode.DCONST_0 or JVMOpcode.DCONST_1 or JVMOpcode.DLOAD_0 or JVMOpcode.DLOAD_1 or JVMOpcode.DLOAD_2 or JVMOpcode.DLOAD_3 or JVMOpcode.ALOAD_0 or
-                    JVMOpcode.ALOAD_1 or JVMOpcode.ALOAD_2 or JVMOpcode.ALOAD_3 or JVMOpcode.ASTORE_0 or JVMOpcode.ASTORE_1 or JVMOpcode.ASTORE_2 or JVMOpcode.ASTORE_3 or
-                    JVMOpcode.DASTORE or JVMOpcode.DUP or JVMOpcode.ARETURN or JVMOpcode.RETURN or JVMOpcode.ATHROW
+                    JVMOpcode.DCONST_0 or JVMOpcode.DCONST_1 or JVMOpcode.LLOAD_0 or JVMOpcode.LLOAD_1 or JVMOpcode.LLOAD_2 or JVMOpcode.LLOAD_3 or JVMOpcode.DLOAD_0 or
+                    JVMOpcode.DLOAD_1 or JVMOpcode.DLOAD_2 or JVMOpcode.DLOAD_3 or JVMOpcode.ALOAD_0 or JVMOpcode.ALOAD_1 or JVMOpcode.ALOAD_2 or JVMOpcode.ALOAD_3 or
+                    JVMOpcode.LSTORE_0 or JVMOpcode.LSTORE_1 or JVMOpcode.LSTORE_2 or JVMOpcode.LSTORE_3 or JVMOpcode.ASTORE_0 or JVMOpcode.ASTORE_1 or JVMOpcode.ASTORE_2 or
+                    JVMOpcode.ASTORE_3 or JVMOpcode.DASTORE or JVMOpcode.POP or JVMOpcode.DUP or JVMOpcode.LADD or JVMOpcode.ARETURN or JVMOpcode.RETURN or JVMOpcode.ATHROW
                         => Array.Empty<object>(),
-                JVMOpcode.INVOKE_SPECIAL or JVMOpcode.INVOKE_VIRTUAL => [rawClass.ResolvePoolByIndex<JVMRefConstantPool>(codeStream.ReadUInt16())],
+                JVMOpcode.INVOKE_SPECIAL or JVMOpcode.INVOKE_VIRTUAL or JVMOpcode.INVOKE_STATIC => [rawClass.ResolvePoolByIndex<JVMRefConstantPool>(codeStream.ReadUInt16())],
+                JVMOpcode.INVOKE_DYNAMIC => [rawClass.ResolvePoolByIndex<JVMDynamicConstantPool>(codeStream.ReadUInt16()), (int)codeStream.ReadUInt16()],
                 JVMOpcode.NEW_ARRAY => [(JVMArrayType)codeStream.ReadByteB()],
                 JVMOpcode.LOAD_CONST_WIDE => [rawClass.ResolveValuePoolValueByIndex(codeStream.ReadUInt16())],
                 JVMOpcode.PUT_FIELD or JVMOpcode.GET_STATIC => [rawClass.ResolvePoolByIndex<JVMRefConstantPool>(codeStream.ReadUInt16())],
                 JVMOpcode.LDC => [ResolveValueFromPool(rawClass, codeStream.ReadByteB())],
                 JVMOpcode.LDC_W => [ResolveValueFromPool(rawClass, codeStream.ReadUInt16())],
                 JVMOpcode.NEW or JVMOpcode.ANEW_ARRAY => [rawClass.ResolveValuePoolValueByIndex<string>(codeStream.ReadUInt16())],
-                JVMOpcode.BIPUSH => [codeStream.ReadByteB()],
-                JVMOpcode.SIPUSH => [codeStream.ReadUInt16()],
+                JVMOpcode.BIPUSH => [codeStream.ReadByteB().SignExtend()],
+                JVMOpcode.SIPUSH => [(int)codeStream.ReadUInt16()],
                 _ => throw new ArgumentOutOfRangeException(nameof(opcode), opcode, null),
             };
 
@@ -227,6 +209,40 @@ namespace JVMParser
                 _ => throw new ArgumentOutOfRangeException(nameof(frameType), frameType, null)
             };
         }
+
+        private static AJVMConstantPool GetBootstrapArgument(JVMClassRaw rawClass, Stream stream)
+        {
+            return rawClass.ResolvePoolByIndex(stream.ReadUInt16());
+        }
+        
+        private static JVMBootstrapMethod GetBootstrapMethod(JVMClassRaw rawClass, Stream stream)
+        {
+            var bootstrapMethod = new JVMBootstrapMethod
+            {
+                BootstrapMethodRef = rawClass.ResolvePoolByIndex<JVMHandleConstantPool>(stream.ReadUInt16()),
+                BootstrapArguments = stream.ParseArray(_ => GetBootstrapArgument(rawClass, stream)),
+            };
+            return bootstrapMethod;
+        }
+
+        private static JVMInnerClass GetInnerClass(JVMClassRaw rawClass, Stream stream)
+        {
+            static string? ParseString(JVMClassRaw rawClass, ushort poolIndex)
+            {
+                return poolIndex != 0
+                    ? rawClass.ResolveValuePoolValueByIndex<string>(poolIndex)
+                    : null;
+            }
+            
+            var innerClass = new JVMInnerClass
+            {
+                InnerClassInfo = rawClass.ResolveValuePoolValueByIndex<string>(stream.ReadUInt16()),
+                OuterClassInfo = ParseString(rawClass, stream.ReadUInt16()),
+                InnerName = ParseString(rawClass, stream.ReadUInt16()),
+                AccessFlags = JVMRawParser.ParseAccessFlags(stream.ReadUInt16()),
+            };
+            return innerClass;
+        }
         #endregion
         
         private static T[] GetArrayFromBytes<T>(byte[] bytes, Func<Stream, T> itemProcessor)
@@ -270,6 +286,10 @@ namespace JVMParser
                     return GetArrayFromBytes(data, GetLineNumberTable);
                 case Constants.AttributeName.STACK_MAP_TABLE:
                     return GetArrayFromBytes(data, stream => GetStackMapFrame(rawClass, stream));
+                case Constants.AttributeName.BOOTSTRAP_METHODS:
+                    return GetArrayFromBytes(data, stream => GetBootstrapMethod(rawClass, stream));
+                case Constants.AttributeName.INNER_CLASSES:
+                    return GetArrayFromBytes(data, stream => GetInnerClass(rawClass, stream));
                 default:
                     return BitConverter.ToString(data);
             }

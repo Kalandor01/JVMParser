@@ -18,13 +18,15 @@ public class Test extends ATest implements ITest
         return new int[3];
     }
 
-    public static String Foo(int intVal, String strVal)
+    public static String Foo(long intVal, String strVal)
     {
-        return "test";
+        var l = intVal + 1;
+        return strVal;
     }
 
     public static void main(String[] args)
     {
+        Foo(-9, "tetetett");
         System.out.println("Hello World!");
         var localTest = new Test(69);
         var res = localTest.Bar();

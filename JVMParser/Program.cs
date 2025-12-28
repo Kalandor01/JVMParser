@@ -20,7 +20,10 @@
             var otherClasses = parsedClasses
                 .Where(c => c.fileName != executingClass)
                 .Select(c => c.jvmClass!)
+                .Append(JVMMock.MockSystemClass())
+                .Append(JVMMock.MockPrintStreamClass())
                 .ToArray();
+            
             JVMInterpreter.ExecuteMain(testClass, otherClasses);
         }
 

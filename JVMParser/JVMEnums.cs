@@ -43,24 +43,29 @@ public enum JVMReferenceKind : byte
 public enum JVMAccessFlag : ushort
 {
     ///<summary>
-    /// Declared public; may be accessed from outside its package.
+    /// Declared public; may be accessed from outside its package.<br/>
+    /// Marked or implicitly public in source.
     ///</summary>
     PUBLIC = 0x0001,
     ///<summary>
-    /// Declared private; accessible only within the defining class and other classes belonging to the same nest.
+    /// Declared private; accessible only within the defining class and other classes belonging to the same nest.<br/>
+    /// Marked private in source.
     ///</summary>
     PRIVATE = 0x0002,
     ///<summary>
-    /// Declared protected; may be accessed within subclasses.
+    /// Declared protected; may be accessed within subclasses.<br/>
+    /// Marked protected in source.
     ///</summary>
     PROTECTED = 0x0004,
     ///<summary>
-    /// Declared static.
+    /// Declared static.<br/>
+    /// Marked or implicitly static in source.
     ///</summary>
     STATIC = 0x0008,
     ///<summary>
     /// Declared final; no subclasses allowed.<br/>
-    /// Declared final; must not be overridden.
+    /// Declared final; must not be overridden.<br/>
+    /// Marked or implicitly final in source.
     ///</summary>
     FINAL = 0x0010,
     ///<summary>
@@ -84,12 +89,14 @@ public enum JVMAccessFlag : ushort
     /// </summary>
     NATIVE = 0x0100,
     ///<summary>
-    /// Is an interface, not a class.
+    /// Is an interface, not a class.<br/>
+    /// Was an interface in source.
     ///</summary>
     INTERFACE = 0x0200,
     ///<summary>
     /// Declared abstract; must not be instantiated.<br/>
-    /// Declared abstract; no implementation is provided.
+    /// Declared abstract; no implementation is provided.<br/>
+    /// Marked or implicitly abstract in source.
     ///</summary>
     ABSTRACT = 0x0400,
     /// <summary>
@@ -322,6 +329,34 @@ public enum JVMOpcode : byte
     /// </summary>
     LOAD_CONST_WIDE = 0x14,
     /// <summary>
+    /// Load long from local variable 1.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; long
+    /// </summary>
+    LLOAD_0 = 0x1E,
+    /// <summary>
+    /// Load long from local variable 2.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; long
+    /// </summary>
+    LLOAD_1 = 0x1F,
+    /// <summary>
+    /// Load long from local variable 3.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; long
+    /// </summary>
+    LLOAD_2 = 0x20,
+    /// <summary>
+    /// Load long from local variable 4.<br/>
+    /// args: -<br/>
+    /// &lt;- -<br/>
+    /// -&gt; long
+    /// </summary>
+    LLOAD_3 = 0x21,
+    /// <summary>
     /// Load double from 1. local variable.<br/>
     /// args: -<br/>
     /// &lt;- -<br/>
@@ -378,6 +413,38 @@ public enum JVMOpcode : byte
     /// </summary>
     ALOAD_3 = 0x2D,
     /// <summary>
+    /// Store long into 1. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- long<br/>
+    /// -&gt; -<br/>
+    /// long -&gt; local1
+    /// </summary>
+    LSTORE_0 = 0x3F,
+    /// <summary>
+    /// Store long into 2. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- long<br/>
+    /// -&gt; -<br/>
+    /// long -&gt; local2
+    /// </summary>
+    LSTORE_1 = 0x40,
+    /// <summary>
+    /// Store long into 3. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- long<br/>
+    /// -&gt; -<br/>
+    /// long -&gt; local3
+    /// </summary>
+    LSTORE_2 = 0x41,
+    /// <summary>
+    /// Store long into 4. local variable.<br/>
+    /// args: -<br/>
+    /// &lt;- long<br/>
+    /// -&gt; -<br/>
+    /// long -&gt; local4
+    /// </summary>
+    LSTORE_3 = 0x42,
+    /// <summary>
     /// Store reference into 1. local variable.<br/>
     /// args: -<br/>
     /// &lt;- reference<br/>
@@ -417,12 +484,26 @@ public enum JVMOpcode : byte
     /// </summary>
     DASTORE = 0x52,
     /// <summary>
+    /// Pop the top operand stack value.<br/>
+    /// args: -<br/>
+    /// &lt;- value<br/>
+    /// -&gt; -
+    /// </summary>
+    POP = 0x57,
+    /// <summary>
     /// Duplicate the top operand stack value.<br/>
     /// args: -<br/>
     /// &lt;- value<br/>
     /// -&gt; value, value
     /// </summary>
     DUP = 0x59,
+    /// <summary>
+    /// Add long.<br/>
+    /// args: -<br/>
+    /// &lt;- long, long<br/>
+    /// -&gt; long
+    /// </summary>
+    LADD = 0x61,
     /// <summary>
     /// Return reference from method.<br/>
     /// args: -<br/>
@@ -467,6 +548,20 @@ public enum JVMOpcode : byte
     /// -&gt; -
     /// </summary>
     INVOKE_SPECIAL = 0xB7,
+    /// <summary>
+    /// Invoke a class (static) method.<br/>
+    /// args: <see cref="JVMRefConstantPool"/> (method)<br/>
+    /// &lt;- value * methodRef.descriptor.args.Length<br/>
+    /// -&gt; -
+    /// </summary>
+    INVOKE_STATIC = 0xB8,
+    /// <summary>
+    /// Invoke dynamic method.<br/>
+    /// args: <see cref="JVMRefConstantPool"/> (method), 0<br/>
+    /// &lt;- value * methodRef.descriptor.args.Length<br/>
+    /// -&gt; -
+    /// </summary>
+    INVOKE_DYNAMIC = 0xBA,
     /// <summary>
     /// Create new object.<br/>
     /// args: typeName<br/>
