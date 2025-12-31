@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JVMParser", "JVMParser\JVMParser.csproj", "{CE60BE84-A9E6-4D9C-9BCB-78F5B602428F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParseTest", "ParseTest\ParseTest.csproj", "{9F2B4830-542B-407D-8483-2091BFF9D791}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{CE60BE84-A9E6-4D9C-9BCB-78F5B602428F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CE60BE84-A9E6-4D9C-9BCB-78F5B602428F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CE60BE84-A9E6-4D9C-9BCB-78F5B602428F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F2B4830-542B-407D-8483-2091BFF9D791}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F2B4830-542B-407D-8483-2091BFF9D791}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F2B4830-542B-407D-8483-2091BFF9D791}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F2B4830-542B-407D-8483-2091BFF9D791}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

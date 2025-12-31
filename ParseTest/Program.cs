@@ -1,4 +1,6 @@
-﻿namespace JVMParser
+﻿using JVMParser;
+
+namespace ParseTest
 {
     class Program
     {
@@ -36,7 +38,7 @@
             var jvmRawClass = JVMRawParser.Parse(testFilePath);
 
             return jvmRawClass is not null
-                ? JVMParser.RevolveJVMClass(jvmRawClass)
+                ? JVMParser.JVMParser.RevolveJVMClass(jvmRawClass)
                 : null;
         }
     }
