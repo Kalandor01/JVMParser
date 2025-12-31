@@ -14,7 +14,7 @@ public abstract class ATest
 
     public ATest(double num)
     {
-        Num = num;
+        Num = ("0" + num).length();
     }
 
     public abstract void AbstractImplement();

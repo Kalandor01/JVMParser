@@ -69,6 +69,11 @@ namespace JVMParser
             return references.First(c => c.ThisClass == className);
         }
 
+        private static JVMBootstrapMethod ResolveBootstrapMethod(JVMClass jvmClass, ushort bootstrapMethodIndex)
+        {
+            return ((JVMBootstrapMethod[])jvmClass.Attributes.First(a => a.Name == Constants.AttributeName.BOOTSTRAP_METHODS).Data)[bootstrapMethodIndex];
+        }
+
         private static JVMField ResolveField(JVMClass[] references, JVMRefConstantPool fieldPool)
         {
             if (fieldPool.Tag != JVMConstantPoolTag.FIELD_REF)
@@ -96,6 +101,39 @@ namespace JVMParser
                 .First(m => m.Name == methodPool.NameAndType.Name && m.Descriptor.DescriptorString == methodPool.NameAndType.Descriptor.DescriptorString);
         }
 
+        private static JVMMethod ResolveMethodHandle(JVMClass[] references, JVMHandleConstantPool handlePool)
+        {
+            return handlePool.Kind switch
+            {
+                //JVMReferenceKind.GET_FIELD => expr,
+                //JVMReferenceKind.GET_STATIC => expr,
+                //JVMReferenceKind.PUT_FIELD => expr,
+                //JVMReferenceKind.PUT_STATIC => expr,
+                //JVMReferenceKind.INVOKE_VIRTUAL => expr,
+                JVMReferenceKind.INVOKE_STATIC => ResolveMethod(references, handlePool.Reference),
+                // JVMReferenceKind.INVOKE_SPECIAL => expr,
+                // JVMReferenceKind.NEW_INVOKE_SPECIAL => expr,
+                // JVMReferenceKind.INVOKE_INTERFACE => expr,
+                _ => throw new ArgumentOutOfRangeException(nameof(handlePool.Kind), handlePool.Kind, null),
+            };
+        }
+
+        private static JVMMethod ResolveDynamicMethod(JVMClass[] references, JVMDynamicConstantPool dynamicPool)
+        {
+            if (
+                dynamicPool.Tag != JVMConstantPoolTag.DYNAMIC &&
+                dynamicPool.Tag != JVMConstantPoolTag.INVOKE_DYNAMIC
+            )
+            {
+                throw new ArgumentException("Invalid tag", nameof(dynamicPool));
+            }
+
+            var bootstrapClass = ResolveClass(references, dynamicPool.ClassName);
+            var bootstrapMethod = ResolveBootstrapMethod(bootstrapClass, dynamicPool.BootstrapMethodAttributeIndex);
+            var methodHandle = ResolveMethodHandle(references, bootstrapMethod.BootstrapMethodRef);
+            throw new NotImplementedException();
+        }
+
         private static void CallMethod(
             JVMClass[] references,
             Stack<object?> stackFrame,
@@ -103,6 +141,25 @@ namespace JVMParser
         )
         {
             var method = ResolveMethod(references, methodPool);
+            var paramCount = method.Descriptor.Parameters.Length;
+            var args = Enumerable.Repeat<object?>(null, paramCount)
+                .Select(_ => stackFrame.Pop())
+                .Reverse()
+                .ToArray();
+            
+            if (ExecuteMethod(references, method, args, out var retV))
+            {
+                stackFrame.Push(retV);
+            }
+        }
+
+        private static void CallDynamicMethod(
+            JVMClass[] references,
+            Stack<object?> stackFrame,
+            JVMDynamicConstantPool dynamicPool
+        )
+        {
+            var method = ResolveDynamicMethod(references, dynamicPool);
             var paramCount = method.Descriptor.Parameters.Length;
             var args = Enumerable.Repeat<object?>(null, paramCount)
                 .Select(_ => stackFrame.Pop())
@@ -261,6 +318,9 @@ namespace JVMParser
                 case JVMOpcode.LADD:
                     stackFrame.Push(stackFrame.Pop<long>() + stackFrame.Pop<long>());
                     break;
+                case JVMOpcode.I2D:
+                    stackFrame.Push((double)stackFrame.Pop<int>());
+                    break;
                 case JVMOpcode.ARETURN:
                     var reference = stackFrame.Pop()!;
                     stackFrame.Clear();
@@ -286,8 +346,10 @@ namespace JVMParser
                     var methodPoolS = (JVMRefConstantPool)instruction.Arguments[0];
                     CallMethod(references, stackFrame, methodPoolS);
                     break;
-                // case JVMOpcode.INVOKE_DYNAMIC:
-                //     break;
+                case JVMOpcode.INVOKE_DYNAMIC:
+                    var methodPoolD = (JVMDynamicConstantPool)instruction.Arguments[0];
+                    CallDynamicMethod(references, stackFrame, methodPoolD);
+                    break;
                 // case JVMOpcode.NEW:
                 //     break;
                 // case JVMOpcode.NEW_ARRAY:

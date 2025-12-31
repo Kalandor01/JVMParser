@@ -21,7 +21,7 @@ public class Test extends ATest implements ITest
     public static String Foo(long intVal, String strVal)
     {
         var l = intVal + 1;
-        return strVal;
+        return "thing" + strVal;
     }
 
     public static void main(String[] args)

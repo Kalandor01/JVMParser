@@ -95,10 +95,15 @@ namespace JVMParser
                     JVMOpcode.DCONST_0 or JVMOpcode.DCONST_1 or JVMOpcode.LLOAD_0 or JVMOpcode.LLOAD_1 or JVMOpcode.LLOAD_2 or JVMOpcode.LLOAD_3 or JVMOpcode.DLOAD_0 or
                     JVMOpcode.DLOAD_1 or JVMOpcode.DLOAD_2 or JVMOpcode.DLOAD_3 or JVMOpcode.ALOAD_0 or JVMOpcode.ALOAD_1 or JVMOpcode.ALOAD_2 or JVMOpcode.ALOAD_3 or
                     JVMOpcode.LSTORE_0 or JVMOpcode.LSTORE_1 or JVMOpcode.LSTORE_2 or JVMOpcode.LSTORE_3 or JVMOpcode.ASTORE_0 or JVMOpcode.ASTORE_1 or JVMOpcode.ASTORE_2 or
-                    JVMOpcode.ASTORE_3 or JVMOpcode.DASTORE or JVMOpcode.POP or JVMOpcode.DUP or JVMOpcode.LADD or JVMOpcode.ARETURN or JVMOpcode.RETURN or JVMOpcode.ATHROW
+                    JVMOpcode.ASTORE_3 or JVMOpcode.DASTORE or JVMOpcode.POP or JVMOpcode.DUP or JVMOpcode.LADD or JVMOpcode.I2D or JVMOpcode.ARETURN or JVMOpcode.RETURN or
+                    JVMOpcode.ATHROW
                         => Array.Empty<object>(),
                 JVMOpcode.INVOKE_SPECIAL or JVMOpcode.INVOKE_VIRTUAL or JVMOpcode.INVOKE_STATIC => [rawClass.ResolvePoolByIndex<JVMRefConstantPool>(codeStream.ReadUInt16())],
-                JVMOpcode.INVOKE_DYNAMIC => [rawClass.ResolvePoolByIndex<JVMDynamicConstantPool>(codeStream.ReadUInt16()), (int)codeStream.ReadUInt16()],
+                JVMOpcode.INVOKE_DYNAMIC => [
+                        rawClass.ResolvePoolByIndex<JVMDynamicConstantPool>(codeStream.ReadUInt16())
+                            .SetClassName(rawClass.ResolveValuePoolValueByIndex<string>(rawClass.ThisClassIndex)),
+                        (int)codeStream.ReadUInt16(),
+                    ],
                 JVMOpcode.NEW_ARRAY => [(JVMArrayType)codeStream.ReadByteB()],
                 JVMOpcode.LOAD_CONST_WIDE => [rawClass.ResolveValuePoolValueByIndex(codeStream.ReadUInt16())],
                 JVMOpcode.PUT_FIELD or JVMOpcode.GET_STATIC => [rawClass.ResolvePoolByIndex<JVMRefConstantPool>(codeStream.ReadUInt16())],

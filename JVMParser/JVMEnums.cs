@@ -505,6 +505,13 @@ public enum JVMOpcode : byte
     /// </summary>
     LADD = 0x61,
     /// <summary>
+    /// Convert int to double.<br/>
+    /// args: -<br/>
+    /// &lt;- int<br/>
+    /// -&gt; double
+    /// </summary>
+    I2D = 0x87,
+    /// <summary>
     /// Return reference from method.<br/>
     /// args: -<br/>
     /// &lt;- reference<br/>

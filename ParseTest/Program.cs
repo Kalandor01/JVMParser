@@ -24,6 +24,7 @@ namespace ParseTest
                 .Select(c => c.jvmClass!)
                 .Append(JVMMock.MockSystemClass())
                 .Append(JVMMock.MockPrintStreamClass())
+                .Append(JVMMock.MockStringConcatFactoryClass())
                 .ToArray();
             
             JVMInterpreter.ExecuteMain(testClass, otherClasses);

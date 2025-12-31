@@ -34,6 +34,17 @@ internal class Constants
                 public const string DESCRIPTOR = "(Ljava/lang/String;)V";
             }
         }
+
+        public class StringConcatFactory
+        {
+            public const string CLASS_NAME = "java/lang/invoke/StringConcatFactory";
+            
+            public class MakeConcatWithConstants
+            {
+                public const string NAME = "makeConcatWithConstants";
+                public const string DESCRIPTOR = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;";
+            }
+        }
     }
     
     public class ConstantPoolExtraPropertyName

@@ -26,6 +26,16 @@ namespace JVMParser
                 [MockPrintLineMethod()]
             );
         }
+        
+        public static JVMClass MockStringConcatFactoryClass()
+        {
+            return MockClass(
+                Constants.MockClass.StringConcatFactory.CLASS_NAME,
+                [JVMAccessFlag.PUBLIC, JVMAccessFlag.FINAL],
+                [],
+                [MockMakeConcatWithConstantsMethod()]
+            );
+        }
         #endregion
 
         #region Private methods
@@ -103,10 +113,26 @@ namespace JVMParser
             );
         }
 
+        private static JVMMethod MockMakeConcatWithConstantsMethod()
+        {
+            return MockMethod(
+                Constants.MockClass.StringConcatFactory.MakeConcatWithConstants.NAME,
+                Constants.MockClass.StringConcatFactory.MakeConcatWithConstants.DESCRIPTOR,
+                [JVMAccessFlag.PUBLIC, JVMAccessFlag.STATIC],
+                MockMakeConcatWithConstants
+            );
+        }
+        
         #region External methods
         private static bool MockPrintLine(JVMClass[] references, object?[] args, out object? returnValue)
         {
             Console.WriteLine(args[0]);
+            returnValue = null;
+            return false;
+        }
+        
+        private static bool MockMakeConcatWithConstants(JVMClass[] references, object?[] args, out object? returnValue)
+        {
             returnValue = null;
             return false;
         }

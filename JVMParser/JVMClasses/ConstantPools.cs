@@ -112,14 +112,22 @@ namespace JVMParser.JVMClasses
     
     public class JVMDynamicConstantPool : AJVMConstantPool
     {
+        public string ClassName { get; private set; }
         public readonly ushort BootstrapMethodAttributeIndex;
         public readonly JVMNameTypeConstantPool NameAndType;
     
         public JVMDynamicConstantPool(JVMConstantPoolTag tag, ushort bootstrapIndex, JVMNameTypeConstantPool nameAndType)
             : base(tag)
         {
+            ClassName = null;
             BootstrapMethodAttributeIndex = bootstrapIndex;
             NameAndType = nameAndType;
+        }
+
+        public object SetClassName(string className)
+        {
+            ClassName = className;
+            return this;
         }
     
         public override string? ToString()
