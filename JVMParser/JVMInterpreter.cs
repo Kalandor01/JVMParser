@@ -1,5 +1,6 @@
 using JVMParser.Extensions;
 using JVMParser.JVMClasses;
+using JVMParser.Mock;
 
 namespace JVMParser
 {

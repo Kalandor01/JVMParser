@@ -1,4 +1,5 @@
 ﻿using JVMParser;
+using JVMParser.Mock;
 
 namespace ParseTest
 {
@@ -22,9 +23,9 @@ namespace ParseTest
             var otherClasses = parsedClasses
                 .Where(c => c.fileName != executingClass)
                 .Select(c => c.jvmClass!)
-                .Append(JVMMock.MockSystemClass())
-                .Append(JVMMock.MockPrintStreamClass())
-                .Append(JVMMock.MockStringConcatFactoryClass())
+                .Append(JVMMock.MockClass<JVMMockClasses.System>())
+                .Append(JVMMock.MockClass<JVMMockClasses.PrintStream>())
+                .Append(JVMMock.MockClass<JVMMockClasses.StringConcatFactory>())
                 .ToArray();
             
             JVMInterpreter.ExecuteMain(testClass, otherClasses);

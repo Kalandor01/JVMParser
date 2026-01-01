@@ -40,6 +40,7 @@ public enum JVMReferenceKind : byte
     INVOKE_INTERFACE = 9,
 }
 
+[Flags]
 public enum JVMAccessFlag : ushort
 {
     ///<summary>

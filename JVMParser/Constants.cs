@@ -12,38 +12,13 @@ internal class Constants
         public const string MAGIC_HEX_STRING = "CA-FE-BA-BE";
         public const ushort MAJOR_VERSION = 65;
         public const ushort MINOR_VERSION = 0;
-        
-        public class System
-        {
-            public const string CLASS_NAME = "java/lang/System";
-            
-            public class OutField
-            {
-                public const string NAME = "out";
-                public const string DESCRIPTOR = "Ljava/io/PrintStream;";
-            }
-        }
-        
-        public class PrintStream
-        {
-            public const string CLASS_NAME = "java/io/PrintStream";
-            
-            public class PrintLineMethod
-            {
-                public const string NAME = "println";
-                public const string DESCRIPTOR = "(Ljava/lang/String;)V";
-            }
-        }
 
-        public class StringConcatFactory
+        public class FieldNames
         {
-            public const string CLASS_NAME = "java/lang/invoke/StringConcatFactory";
-            
-            public class MakeConcatWithConstants
-            {
-                public const string NAME = "makeConcatWithConstants";
-                public const string DESCRIPTOR = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;";
-            }
+            public const string ACCESS_FLAGS = "ACCESS_FLAGS";
+            public const string INTERFACES = "INTERFACES";
+            public const string DESCRIPTOR = "DESCRIPTOR";
+            public const string EXTERNAL_METHOD = "EXTERNAL_METHOD";
         }
     }
     
